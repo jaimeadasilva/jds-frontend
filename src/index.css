@@ -1,0 +1,64 @@
+*, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+:root {
+  --navy:      #1A3A4A;
+  --blue:      #2F6F8F;
+  --blue-mid:  #3E8FB0;
+  --blue-light:#6AB0CC;
+  --blue-pale: #EAF5FA;
+  --blue-pale2:#D4EBF5;
+  --orange:    #F47B20;
+  --orange-pale:#FEF0E3;
+  --white:     #FFFFFF;
+  --bg:        #F4F7FA;
+  --card:      #FFFFFF;
+  --line:      #E6ECF2;
+  --muted:     #8FA3B4;
+  --text:      #1A2B38;
+  --text-sub:  #5A7A8E;
+  --green:     #27AE60;
+  --red:       #E55454;
+  --shadow:    0 2px 16px rgba(26,58,74,0.08);
+  --shadow-md: 0 6px 28px rgba(26,58,74,0.13);
+  --shadow-sm: 0 1px 6px rgba(26,58,74,0.07);
+  --radius:    16px;
+  --font:      'Plus Jakarta Sans', 'Helvetica Neue', sans-serif;
+}
+
+html, body, #root {
+  height: 100%;
+  font-family: var(--font);
+  background: var(--bg);
+  color: var(--text);
+  -webkit-font-smoothing: antialiased;
+  overscroll-behavior: none;
+}
+
+button { font-family: var(--font); }
+input, select, textarea { font-family: var(--font); }
+
+::-webkit-scrollbar { display: none; }
+* { scrollbar-width: none; }
+
+/* Page wrapper — max 430px centered, like a phone */
+.app-shell {
+  max-width: 430px;
+  margin: 0 auto;
+  min-height: 100vh;
+  position: relative;
+  background: var(--bg);
+  overflow-x: hidden;
+}
+
+/* Scrollable page content with bottom nav padding */
+.page {
+  padding-bottom: 90px;
+  min-height: 100vh;
+}
+
+/* Fade-in animation */
+@keyframes fadeUp {
+  from { opacity: 0; transform: translateY(12px); }
+  to   { opacity: 1; transform: translateY(0); }
+}
+.fade-up { animation: fadeUp 0.3s ease forwards; }
