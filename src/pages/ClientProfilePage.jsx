@@ -54,10 +54,10 @@ export default function ClientProfilePage() {
   return (
     <div className="page">
       {/* Hero */}
-      <div style={{ background:`linear-gradient(145deg, var(--navy) 0%, var(--blue) 100%)`, padding:"16px 20px 0", position:"relative", overflow:"hidden" }}>
+      <div style={{ background:`linear-gradient(145deg, #1E40AF 0%, var(--royal) 100%)`, padding:"16px 20px 0", position:"relative", overflow:"hidden" }}>
         <div style={{ position:"absolute", width:200, height:200, borderRadius:"50%", background:"#fff", opacity:0.05, top:-60, right:-40 }} />
         <button onClick={() => navigate("/coach/clients")}
-          style={{ background:"rgba(255,255,255,0.15)", border:"1px solid rgba(255,255,255,0.25)", borderRadius:10, padding:"8px 12px", cursor:"pointer", color:"#fff", fontSize:14, fontWeight:600, marginBottom:16, fontFamily:"var(--font)" }}>
+          style={{ background:"rgba(255,255,255,0.15)", border:"1px solid rgba(255,255,255,0.25)", borderRadius:10, padding:"8px 12px", cursor:"pointer", color:"#fff", fontSize:14, fontWeight:600, marginBottom:16, fontFamily:"var(--font-body)" }}>
           ← Clients
         </button>
         <div style={{ display:"flex", alignItems:"center", gap:14, marginBottom:20, position:"relative", zIndex:1 }}>
@@ -65,7 +65,7 @@ export default function ClientProfilePage() {
             {client.avatar_initials || client.full_name?.slice(0,2)}
           </div>
           <div style={{ flex:1 }}>
-            <h2 style={{ color:"#fff", margin:0, fontSize:22, fontWeight:900, letterSpacing:"-0.02em" }}>{client.full_name}</h2>
+            <h2 style={{ color:"#fff", margin:0, fontSize:22, fontWeight:900, letterSpacing:"-0.03em", fontFamily:"var(--font-display)" }}>{client.full_name}</h2>
             <div style={{ marginTop:4 }}>
               <Badge label={client.goal} color="rgba(255,255,255,0.9)" icon={goalIcon(client.goal)} />
             </div>
@@ -90,7 +90,7 @@ export default function ClientProfilePage() {
         <div style={{ display:"flex", borderTop:"1px solid rgba(255,255,255,0.15)", marginLeft:-20, marginRight:-20, paddingLeft:20, overflowX:"auto" }}>
           {TABS.map(t => (
             <button key={t.id} onClick={() => setTab(t.id)}
-              style={{ background:"none", border:"none", cursor:"pointer", padding:"12px 14px 10px", fontWeight: tab===t.id?800:500, fontSize:13, color: tab===t.id?"#fff":"rgba(255,255,255,0.5)", borderBottom: tab===t.id?"2.5px solid #fff":"2.5px solid transparent", whiteSpace:"nowrap", fontFamily:"var(--font)", transition:"all 0.15s", flexShrink:0 }}>
+              style={{ background:"none", border:"none", cursor:"pointer", padding:"12px 14px 10px", fontWeight: tab===t.id?800:500, fontSize:13, color: tab===t.id?"#fff":"rgba(255,255,255,0.5)", borderBottom: tab===t.id?"2.5px solid #fff":"2.5px solid transparent", whiteSpace:"nowrap", fontFamily:"var(--font-body)", transition:"all 0.15s", flexShrink:0 }}>
               {t.icon} {t.label}
             </button>
           ))}
@@ -155,9 +155,9 @@ function WorkoutTab({ workout, clientId, token, reload }) {
       {days.map((day, dayIdx) => (
         <Card key={day.id} style={{ marginBottom:12, overflow:"hidden", padding:0 }}>
           <button onClick={() => setExpanded(expanded===dayIdx?-1:dayIdx)}
-            style={{ width:"100%", background:"none", border:"none", cursor:"pointer", padding:"16px 18px", display:"flex", justifyContent:"space-between", alignItems:"center", fontFamily:"var(--font)" }}>
+            style={{ width:"100%", background:"none", border:"none", cursor:"pointer", padding:"16px 18px", display:"flex", justifyContent:"space-between", alignItems:"center", fontFamily:"var(--font-body)" }}>
             <div style={{ display:"flex", alignItems:"center", gap:10, textAlign:"left" }}>
-              <div style={{ width:32, height:32, borderRadius:10, background:"var(--blue-pale)", display:"flex", alignItems:"center", justifyContent:"center", fontSize:14, fontWeight:800, color:"var(--blue)", flexShrink:0 }}>{dayIdx+1}</div>
+              <div style={{ width:32, height:32, borderRadius:10, background:"var(--royal-pale)", display:"flex", alignItems:"center", justifyContent:"center", fontSize:14, fontWeight:800, color:"var(--royal)", flexShrink:0 }}>{dayIdx+1}</div>
               <div>
                 <div style={{ fontWeight:800, fontSize:15, color:"var(--text)" }}>{day.day_label}</div>
                 <div style={{ fontSize:12, color:"var(--muted)" }}>{day.day_focus}</div>
@@ -166,7 +166,7 @@ function WorkoutTab({ workout, clientId, token, reload }) {
             <div style={{ display:"flex", alignItems:"center", gap:10 }}>
               <span style={{ fontSize:12, color:"var(--muted)" }}>{day.exercises?.length || 0} exercises</span>
               <button onClick={e=>{e.stopPropagation();removeDay(day.id)}} style={{ background:"none", border:"none", cursor:"pointer", fontSize:16, color:"var(--muted)" }}>🗑</button>
-              <span style={{ color:"var(--blue)", fontSize:18 }}>{expanded===dayIdx?"⌃":"⌄"}</span>
+              <span style={{ color:"var(--royal)", fontSize:18 }}>{expanded===dayIdx?"⌃":"⌄"}</span>
             </div>
           </button>
 
@@ -177,17 +177,17 @@ function WorkoutTab({ workout, clientId, token, reload }) {
                   <div style={{ flex:1 }}>
                     <div style={{ fontWeight:700, fontSize:14, color:"var(--text)" }}>{ex.name}</div>
                     <div style={{ fontSize:12, color:"var(--muted)", marginTop:2 }}>
-                      <span style={{ fontWeight:700, color:"var(--blue)" }}>{ex.sets}</span> sets × <span style={{ fontWeight:700, color:"var(--blue)" }}>{ex.reps}</span> reps
+                      <span style={{ fontWeight:700, color:"var(--royal)" }}>{ex.sets}</span> sets × <span style={{ fontWeight:700, color:"var(--royal)" }}>{ex.reps}</span> reps
                       {ex.notes && <span style={{ fontStyle:"italic" }}> · {ex.notes}</span>}
                     </div>
-                    {ex.video_url && <a href={ex.video_url} target="_blank" rel="noreferrer" style={{ display:"inline-flex", alignItems:"center", gap:5, marginTop:6, background:"var(--orange)", color:"#fff", borderRadius:8, padding:"4px 10px", fontSize:11, fontWeight:700, textDecoration:"none" }}>▶ Demo</a>}
+                    {ex.video_url && <a href={ex.video_url} target="_blank" rel="noreferrer" style={{ display:"inline-flex", alignItems:"center", gap:5, marginTop:6, background:"var(--amber)", color:"#fff", borderRadius:8, padding:"4px 10px", fontSize:11, fontWeight:700, textDecoration:"none" }}>▶ Demo</a>}
                   </div>
                   <button onClick={() => removeEx(ex.id)} style={{ background:"none", border:"none", cursor:"pointer", fontSize:14, color:"var(--muted)" }}>✕</button>
                 </div>
               ))}
 
               {addingEx===day.id ? (
-                <div style={{ background:"var(--blue-pale)", borderRadius:14, padding:16, marginTop:10 }}>
+                <div style={{ background:"var(--royal-pale)", borderRadius:14, padding:16, marginTop:10 }}>
                   <Input label="Exercise Name" value={newEx.name} onChange={e=>setNewEx(p=>({...p,name:e.target.value}))} />
                   <div style={{ display:"grid", gridTemplateColumns:"1fr 1fr", gap:10 }}>
                     <Input label="Sets" value={newEx.sets} type="number" onChange={e=>setNewEx(p=>({...p,sets:e.target.value}))} />
@@ -202,7 +202,7 @@ function WorkoutTab({ workout, clientId, token, reload }) {
                 </div>
               ) : (
                 <button onClick={() => setAddingEx(day.id)}
-                  style={{ width:"100%", background:"none", border:"1.5px dashed var(--line)", borderRadius:10, padding:10, cursor:"pointer", color:"var(--blue)", fontWeight:700, fontSize:13, marginTop:10, fontFamily:"var(--font)" }}>
+                  style={{ width:"100%", background:"none", border:"1.5px dashed var(--line)", borderRadius:10, padding:10, cursor:"pointer", color:"var(--royal)", fontWeight:700, fontSize:13, marginTop:10, fontFamily:"var(--font-body)" }}>
                   + Add Exercise
                 </button>
               )}
@@ -284,9 +284,9 @@ function NutritionTab({ nutrition, clientId, token, reload }) {
           </div>
         ) : (
           <div style={{ display:"grid", gridTemplateColumns:"1fr 1fr 1fr", gap:8, justifyItems:"center" }}>
-            <MacroRing label="Protein" value={n?.protein_g||0} color="var(--blue)" />
-            <MacroRing label="Carbs"   value={n?.carbs_g||0}   color="var(--orange)" />
-            <MacroRing label="Fats"    value={n?.fats_g||0}    color="var(--blue-light)" />
+            <MacroRing label="Protein" value={n?.protein_g||0} color="var(--royal)" />
+            <MacroRing label="Carbs"   value={n?.carbs_g||0}   color="var(--amber)" />
+            <MacroRing label="Fats"    value={n?.fats_g||0}    color="var(--royal-pale2)" />
           </div>
         )}
       </Card>
@@ -296,14 +296,14 @@ function NutritionTab({ nutrition, clientId, token, reload }) {
         <Card key={meal.id} style={{ padding:"14px 16px", marginBottom:10 }}>
           <div style={{ display:"flex", justifyContent:"space-between", alignItems:"flex-start" }}>
             <div style={{ display:"flex", gap:12, alignItems:"flex-start" }}>
-              <div style={{ width:38, height:38, borderRadius:11, background:"var(--blue-pale)", display:"flex", alignItems:"center", justifyContent:"center", fontSize:18, flexShrink:0 }}>{meal.icon}</div>
+              <div style={{ width:38, height:38, borderRadius:11, background:"var(--royal-pale)", display:"flex", alignItems:"center", justifyContent:"center", fontSize:18, flexShrink:0 }}>{meal.icon}</div>
               <div>
                 <div style={{ fontWeight:800, fontSize:14, color:"var(--text)" }}>{meal.name}</div>
                 <div style={{ fontSize:12, color:"var(--muted)", marginTop:2 }}>{meal.foods}</div>
                 <div style={{ display:"flex", flexWrap:"wrap", gap:5, marginTop:8 }}>
-                  <Badge label={`${meal.calories} kcal`} color="var(--orange)" />
-                  <Badge label={`P ${meal.protein_g}g`}  color="var(--blue)" />
-                  <Badge label={`C ${meal.carbs_g}g`}    color="var(--blue-mid)" />
+                  <Badge label={`${meal.calories} kcal`} color="var(--amber)" />
+                  <Badge label={`P ${meal.protein_g}g`}  color="var(--royal)" />
+                  <Badge label={`C ${meal.carbs_g}g`}    color="var(--royal)" />
                   <Badge label={`F ${meal.fats_g}g`}     color="var(--muted)" />
                 </div>
               </div>
@@ -357,7 +357,7 @@ function EquipmentTab({ clientId, token, equipment, reload }) {
           const active = selected.includes(item);
           return (
             <button key={item} onClick={() => toggle(item)}
-              style={{ borderRadius:14, border:`2px solid ${active?"var(--blue)":"var(--line)"}`, background: active?"var(--blue-pale)":"var(--white)", color: active?"var(--blue)":"var(--text-sub)", padding:"12px", fontSize:13, fontWeight: active?800:500, cursor:"pointer", fontFamily:"var(--font)", transition:"all 0.15s", textAlign:"left" }}>
+              style={{ borderRadius:14, border:`2px solid ${active?"var(--royal)":"var(--line)"}`, background: active?"var(--royal-pale)":"var(--white)", color: active?"var(--royal)":"var(--text2)", padding:"12px", fontSize:13, fontWeight: active?800:500, cursor:"pointer", fontFamily:"var(--font-body)", transition:"all 0.15s", textAlign:"left" }}>
               {active?"✓ ":""}{item}
             </button>
           );
@@ -384,9 +384,9 @@ function MedicalTab({ medical, clientId, token, reload }) {
   };
 
   const META = {
-    note:        { icon:"📋", color:"var(--blue)" },
-    injury:      { icon:"🩹", color:"var(--orange)" },
-    restriction: { icon:"⚠️", color:"var(--red)" },
+    note:        { icon:"📋", color:"var(--royal)" },
+    injury:      { icon:"🩹", color:"var(--amber)" },
+    restriction: { icon:"⚠️", color:"var(--rose)" },
   };
 
   return (
@@ -420,8 +420,8 @@ function MedicalTab({ medical, clientId, token, reload }) {
           <div style={{ marginBottom:12 }}>
             <label style={{ display:"block", fontSize:11, color:"var(--muted)", fontWeight:700, marginBottom:5, letterSpacing:"0.05em", textTransform:"uppercase" }}>Details</label>
             <textarea value={form.text} onChange={e=>setForm(p=>({...p,text:e.target.value}))} rows={4}
-              style={{ width:"100%", border:"1.5px solid var(--line)", borderRadius:11, padding:"10px 14px", fontSize:14, outline:"none", fontFamily:"var(--font)", color:"var(--text)", resize:"vertical", boxSizing:"border-box" }}
-              onFocus={e=>e.target.style.borderColor="var(--blue)"} onBlur={e=>e.target.style.borderColor="var(--line)"} />
+              style={{ width:"100%", border:"1.5px solid var(--line)", borderRadius:11, padding:"10px 14px", fontSize:14, outline:"none", fontFamily:"var(--font-body)", color:"var(--text)", resize:"vertical", boxSizing:"border-box" }}
+              onFocus={e=>e.target.style.borderColor="var(--royal)"} onBlur={e=>e.target.style.borderColor="var(--line)"} />
           </div>
           <div style={{ display:"flex", gap:8 }}>
             <Btn variant="primary" onClick={add} full>Save</Btn>

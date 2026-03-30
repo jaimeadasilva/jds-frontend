@@ -97,7 +97,7 @@ export function PlansPage() {
         <div style={{ display:"flex", background:"var(--line)", borderRadius:14, padding:3, marginBottom:24 }}>
           {[["workout","🏋️ Workouts"],["nutrition","🍎 Nutrition"]].map(([id,label]) => (
             <button key={id} onClick={() => setSection(id)}
-              style={{ flex:1, borderRadius:11, border:"none", cursor:"pointer", padding:10, background: section===id?"var(--white)":"transparent", boxShadow: section===id?"var(--shadow)":"none", fontWeight: section===id?800:500, fontSize:13, color: section===id?"var(--blue)":"var(--muted)", fontFamily:"var(--font)", transition:"all 0.2s" }}>
+              style={{ flex:1, borderRadius:11, border:"none", cursor:"pointer", padding:10, background: section===id?"var(--white)":"transparent", boxShadow: section===id?"var(--shadow)":"none", fontWeight: section===id?800:500, fontSize:13, color: section===id?"var(--royal)":"var(--muted)", fontFamily:"var(--font-body)", transition:"all 0.2s" }}>
               {label}
             </button>
           ))}
@@ -137,8 +137,8 @@ export function PlansPage() {
               <Card key={t.id} style={{ padding:"16px 18px", marginBottom:10 }}>
                 <div style={{ fontWeight:800, fontSize:15, color:"var(--text)" }}>{t.name}</div>
                 <div style={{ display:"flex", gap:8, marginTop:6, flexWrap:"wrap" }}>
-                  <span style={{ fontSize:12, background:"var(--orange-pale)", color:"var(--orange)", borderRadius:20, padding:"3px 10px", fontWeight:700 }}>{t.calories} kcal</span>
-                  <span style={{ fontSize:12, background:"var(--blue-pale)", color:"var(--blue)", borderRadius:20, padding:"3px 10px", fontWeight:700 }}>{t.protein_g}g protein</span>
+                  <span style={{ fontSize:12, background:"var(--amber-pale)", color:"var(--amber)", borderRadius:20, padding:"3px 10px", fontWeight:700 }}>{t.calories} kcal</span>
+                  <span style={{ fontSize:12, background:"var(--royal-pale)", color:"var(--royal)", borderRadius:20, padding:"3px 10px", fontWeight:700 }}>{t.protein_g}g protein</span>
                 </div>
               </Card>
             ))}
@@ -176,7 +176,7 @@ export function CoachProfilePage() {
     <div className="page">
       <TopBar title="Profile" subtitle="JDS Clinic" />
       <div style={{ padding:"0 20px 24px" }}>
-        <div style={{ background:`linear-gradient(145deg, var(--navy), var(--blue))`, borderRadius:20, padding:"28px 24px", marginTop:20, marginBottom:20, position:"relative", overflow:"hidden" }}>
+        <div style={{ background:`linear-gradient(145deg, var(--royal-rich), var(--royal))`, borderRadius:20, padding:"28px 24px", marginTop:20, marginBottom:20, position:"relative", overflow:"hidden" }}>
           <div style={{ position:"absolute", width:150, height:150, borderRadius:"50%", background:"#fff", opacity:0.05, top:-40, right:-30 }} />
           <div style={{ display:"flex", gap:16, alignItems:"center", position:"relative" }}>
             <div style={{ width:64, height:64, borderRadius:20, background:"rgba(255,255,255,0.2)", border:"2px solid rgba(255,255,255,0.35)", display:"flex", alignItems:"center", justifyContent:"center", fontSize:28 }}>🩺</div>
