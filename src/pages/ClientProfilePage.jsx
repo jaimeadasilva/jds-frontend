@@ -1,8 +1,14 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useCallback } from "react";
 import { useParams, useNavigate } from "react-router-dom";
 import { useAuth } from "../hooks/useAuth";
+import { useToast } from "../hooks/useToast";
 import { clientsAPI, workoutsAPI, nutritionAPI, medicalAPI } from "../api/client";
-import { Card, Avatar, Badge, Spinner, Btn, Input, Select, MacroRing, ProgressBar, TopBar, SectionHeader, goalColor, goalIcon, bmi, bmiCat, ibw } from "../components/UI";
+import {
+  Card, Avatar, Badge, Spinner, Btn, Input, Select, Textarea,
+  MacroRing, ProgressBar, TopBar, SectionHeader, Empty, ErrorMsg, PillTabs,
+  goalColor, goalIcon, bmi, bmiCat, ibw
+} from "../components/UI";
+import { Modal, ConfirmModal } from "../components/Modal";
 import BottomNav from "../components/BottomNav";
 
 const COACH_TABS = [
@@ -15,6 +21,7 @@ const COACH_TABS = [
 export default function ClientProfilePage() {
   const { id } = useParams();
   const { token } = useAuth();
+  const { toast } = useToast();
   const navigate  = useNavigate();
 
   const [client,    setClient]    = useState(null);
@@ -23,8 +30,9 @@ export default function ClientProfilePage() {
   const [medical,   setMedical]   = useState([]);
   const [loading,   setLoading]   = useState(true);
   const [tab,       setTab]       = useState("workout");
+  const [editModal, setEditModal] = useState(false);
 
-  const load = async () => {
+  const load = useCallback(async () => {
     try {
       const [c, w, n, m] = await Promise.all([
         clientsAPI.get(id, token),
@@ -32,114 +40,196 @@ export default function ClientProfilePage() {
         nutritionAPI.getPlan(id, token),
         medicalAPI.list(id, token),
       ]);
-      setClient(c); setWorkout(w); setNutrition(n); setMedical(m);
+      setClient(c); setWorkout(w); setNutrition(n);
+      setMedical(Array.isArray(m) ? m : m?.data || []);
     } finally { setLoading(false); }
-  };
+  }, [id, token]);
 
-  useEffect(() => { load(); }, [id]);
+  useEffect(() => { load(); }, [load]);
 
-  if (loading) return <div className="page"><Spinner /></div>;
-  if (!client)  return <div style={{ padding:40, textAlign:"center", color:"var(--muted)" }}>Client not found.</div>;
+  if (loading) return <div className="page" style={{ display:"flex", alignItems:"center", justifyContent:"center" }}><Spinner /></div>;
+  if (!client)  return <Empty icon="❓" title="Client not found" subtitle="This client may have been removed." action={() => navigate("/coach/clients")} actionLabel="Back to Clients" />;
 
   const b   = bmi(client.weight_kg, client.height_cm);
   const cat = bmiCat(+b);
 
   const TABS = [
-    { id:"workout",   label:"Workout",   icon:"🏋️" },
-    { id:"nutrition", label:"Nutrition", icon:"🍎" },
-    { id:"equipment", label:"Equipment", icon:"🔧" },
-    { id:"medical",   label:"Medical",   icon:"🏥" },
+    { id:"workout",   label:"💪 Workout" },
+    { id:"nutrition", label:"🍎 Nutrition" },
+    { id:"equipment", label:"🔧 Equipment" },
+    { id:"medical",   label:"🏥 Medical" },
   ];
 
   return (
     <div className="page">
       {/* Hero */}
-      <div style={{ background:`linear-gradient(145deg, #1E40AF 0%, var(--royal) 100%)`, padding:"16px 20px 0", position:"relative", overflow:"hidden" }}>
-        <div style={{ position:"absolute", width:200, height:200, borderRadius:"50%", background:"#fff", opacity:0.05, top:-60, right:-40 }} />
-        <button onClick={() => navigate("/coach/clients")}
-          style={{ background:"rgba(255,255,255,0.15)", border:"1px solid rgba(255,255,255,0.25)", borderRadius:10, padding:"8px 12px", cursor:"pointer", color:"#fff", fontSize:14, fontWeight:600, marginBottom:16, fontFamily:"var(--font-body)" }}>
-          ← Clients
-        </button>
-        <div style={{ display:"flex", alignItems:"center", gap:14, marginBottom:20, position:"relative", zIndex:1 }}>
-          <div style={{ width:60, height:60, borderRadius:18, background:"rgba(255,255,255,0.2)", border:"2px solid rgba(255,255,255,0.35)", display:"flex", alignItems:"center", justifyContent:"center", fontWeight:900, fontSize:22, color:"#fff" }}>
-            {client.avatar_initials || client.full_name?.slice(0,2)}
-          </div>
-          <div style={{ flex:1 }}>
-            <h2 style={{ color:"#fff", margin:0, fontSize:22, fontWeight:900, letterSpacing:"-0.03em", fontFamily:"var(--font-display)" }}>{client.full_name}</h2>
-            <div style={{ marginTop:4 }}>
-              <Badge label={client.goal} color="rgba(255,255,255,0.9)" icon={goalIcon(client.goal)} />
+      <div style={{ background:"linear-gradient(145deg, #1E40AF 0%, var(--royal) 65%, #3B82F6 100%)", padding:"16px 20px 0", position:"relative", overflow:"hidden" }}>
+        <div style={{ position:"absolute", width:220, height:220, borderRadius:"50%", background:"#fff", opacity:0.05, top:-70, right:-50, pointerEvents:"none" }} />
+        <div style={{ position:"absolute", inset:0, backgroundImage:"radial-gradient(rgba(255,255,255,0.07) 1px, transparent 1px)", backgroundSize:"22px 22px", pointerEvents:"none" }} />
+
+        <div style={{ position:"relative", zIndex:1 }}>
+          <button onClick={() => navigate("/coach/clients")}
+            style={{ background:"rgba(255,255,255,0.14)", border:"1px solid rgba(255,255,255,0.22)", borderRadius:10, padding:"7px 12px", cursor:"pointer", color:"#fff", fontSize:13, fontWeight:600, marginBottom:16, fontFamily:"var(--font-body)" }}>
+            ← Clients
+          </button>
+
+          <div style={{ display:"flex", alignItems:"center", gap:14, marginBottom:18 }}>
+            <div style={{ width:56, height:56, borderRadius:16, background:"rgba(255,255,255,0.18)", border:"1.5px solid rgba(255,255,255,0.3)", display:"flex", alignItems:"center", justifyContent:"center", fontWeight:800, fontSize:20, color:"#fff", fontFamily:"var(--font-display)" }}>
+              {client.avatar_initials || client.full_name?.slice(0,2)}
             </div>
+            <div style={{ flex:1 }}>
+              <h2 style={{ color:"#fff", margin:0, fontSize:21, fontWeight:800, fontFamily:"var(--font-display)", letterSpacing:"-0.03em" }}>{client.full_name}</h2>
+              <div style={{ marginTop:5, display:"flex", gap:6, alignItems:"center", flexWrap:"wrap" }}>
+                <Badge label={client.goal} color="rgba(255,255,255,0.9)" icon={goalIcon(client.goal)} />
+                {medical.length > 0 && <Badge label="Medical" color="#FCA5A5" icon="⚠️" />}
+              </div>
+            </div>
+            <button onClick={() => setEditModal(true)}
+              style={{ background:"rgba(255,255,255,0.14)", border:"1px solid rgba(255,255,255,0.22)", borderRadius:10, padding:"8px 12px", cursor:"pointer", color:"#fff", fontSize:13, fontWeight:600, fontFamily:"var(--font-body)" }}>
+              Edit
+            </button>
+          </div>
+
+          {/* Stats row */}
+          <div style={{ display:"grid", gridTemplateColumns:"1fr 1fr 1fr 1fr", gap:8, marginBottom:20 }}>
+            {[
+              { label:"Weight", value:`${client.weight_kg}kg` },
+              { label:"BMI",    value:b, sub:cat.label, color: cat.c === "var(--emerald)" ? "#4ADE80" : cat.c === "var(--amber)" ? "#FCD34D" : "#FCA5A5" },
+              { label:"IBW",    value:`${ibw(client.height_cm)}kg` },
+              { label:"Height", value:`${client.height_cm}cm` },
+            ].map(s => (
+              <div key={s.label} style={{ background:"rgba(255,255,255,0.12)", borderRadius:11, padding:"10px 8px", textAlign:"center", border:"1px solid rgba(255,255,255,0.14)" }}>
+                <div style={{ fontSize:14, fontWeight:800, color: s.color || "#fff", fontFamily:"var(--font-display)" }}>{s.value}</div>
+                <div style={{ fontSize:9, color:"rgba(255,255,255,0.6)", fontWeight:600, marginTop:2, textTransform:"uppercase", letterSpacing:"0.04em" }}>{s.label}</div>
+                {s.sub && <div style={{ fontSize:9, fontWeight:700, color: s.color || "#4ADE80", marginTop:1 }}>{s.sub}</div>}
+              </div>
+            ))}
           </div>
         </div>
-        {/* Stats row */}
-        <div style={{ display:"grid", gridTemplateColumns:"1fr 1fr 1fr 1fr", gap:8, marginBottom:20 }}>
-          {[
-            { label:"Weight", value:`${client.weight_kg}kg` },
-            { label:"BMI",    value:b, sub:cat.label },
-            { label:"IBW",    value:`${ibw(client.height_cm)}kg` },
-            { label:"Height", value:`${client.height_cm}cm` },
-          ].map(s => (
-            <div key={s.label} style={{ background:"rgba(255,255,255,0.12)", borderRadius:12, padding:"10px 8px", textAlign:"center", border:"1px solid rgba(255,255,255,0.15)" }}>
-              <div style={{ fontSize:14, fontWeight:900, color:"#fff" }}>{s.value}</div>
-              <div style={{ fontSize:9, color:"rgba(255,255,255,0.65)", fontWeight:600, marginTop:2 }}>{s.label}</div>
-              {s.sub && <div style={{ fontSize:9, fontWeight:700, color: +b>=25?"#FBD144":"#4ADE80" }}>{s.sub}</div>}
-            </div>
-          ))}
-        </div>
+
         {/* Tab bar */}
-        <div style={{ display:"flex", borderTop:"1px solid rgba(255,255,255,0.15)", marginLeft:-20, marginRight:-20, paddingLeft:20, overflowX:"auto" }}>
+        <div style={{ display:"flex", borderTop:"1px solid rgba(255,255,255,0.14)", marginLeft:-20, marginRight:-20, paddingLeft:20, overflowX:"auto", position:"relative", zIndex:1 }}>
           {TABS.map(t => (
             <button key={t.id} onClick={() => setTab(t.id)}
-              style={{ background:"none", border:"none", cursor:"pointer", padding:"12px 14px 10px", fontWeight: tab===t.id?800:500, fontSize:13, color: tab===t.id?"#fff":"rgba(255,255,255,0.5)", borderBottom: tab===t.id?"2.5px solid #fff":"2.5px solid transparent", whiteSpace:"nowrap", fontFamily:"var(--font-body)", transition:"all 0.15s", flexShrink:0 }}>
-              {t.icon} {t.label}
+              style={{ background:"none", border:"none", cursor:"pointer", padding:"12px 14px 10px", fontWeight: tab===t.id ? 700 : 500, fontSize:13, color: tab===t.id ? "#fff" : "rgba(255,255,255,0.5)", borderBottom: tab===t.id ? "2.5px solid #fff" : "2.5px solid transparent", whiteSpace:"nowrap", fontFamily:"var(--font-body)", transition:"all 0.15s", flexShrink:0 }}>
+              {t.label}
             </button>
           ))}
         </div>
       </div>
 
       <div style={{ padding:"20px" }}>
-        {tab==="workout"   && <WorkoutTab   workout={workout}   clientId={id} token={token} reload={load} />}
-        {tab==="nutrition" && <NutritionTab nutrition={nutrition} clientId={id} token={token} reload={load} />}
-        {tab==="equipment" && <EquipmentTab clientId={id} token={token} equipment={client.equipment || []} reload={load} />}
-        {tab==="medical"   && <MedicalTab   medical={medical}   clientId={id} token={token} reload={load} />}
+        {tab==="workout"   && <WorkoutTab   workout={workout}   clientId={id} token={token} reload={load} toast={toast} />}
+        {tab==="nutrition" && <NutritionTab nutrition={nutrition} clientId={id} token={token} reload={load} toast={toast} />}
+        {tab==="equipment" && <EquipmentTab clientId={id} token={token} equipment={client.equipment || []} reload={load} toast={toast} />}
+        {tab==="medical"   && <MedicalTab   medical={medical}   clientId={id} token={token} reload={load} toast={toast} />}
       </div>
+
+      {/* Edit Client Modal */}
+      <EditClientModal open={editModal} onClose={() => setEditModal(false)} client={client} token={token} onSaved={(updated) => { setClient(updated); toast.success("Profile updated"); setEditModal(false); }} />
 
       <BottomNav tabs={COACH_TABS} />
     </div>
   );
 }
 
+// ─── Edit Client Modal ────────────────────────────────────────────────────────
+function EditClientModal({ open, onClose, client, token, onSaved }) {
+  const [form, setForm] = useState({});
+  const [saving, setSaving] = useState(false);
+  const [error, setError] = useState("");
+
+  useEffect(() => {
+    if (client) setForm({ age: client.age||"", height_cm: client.height_cm||"", weight_kg: client.weight_kg||"", goal: client.goal||"Fat Loss", progress_pct: client.progress_pct||0 });
+  }, [client]);
+
+  const save = async () => {
+    setSaving(true); setError("");
+    try {
+      const updated = await clientsAPI.update(client.id, { age:+form.age, heightCm:+form.height_cm, weightKg:+form.weight_kg, goal:form.goal, progress_pct:+form.progress_pct }, token);
+      onSaved(updated);
+    } catch (e) { setError(e.message); }
+    finally { setSaving(false); }
+  };
+
+  const set = k => e => setForm(p => ({ ...p, [k]: e.target.value }));
+
+  return (
+    <Modal open={open} onClose={onClose} title={`Edit ${client?.full_name?.split(" ")[0]}`}>
+      <ErrorMsg msg={error} />
+      <div style={{ display:"grid", gridTemplateColumns:"1fr 1fr", gap:10 }}>
+        <Input label="Age" value={form.age||""} type="number" onChange={set("age")} />
+        <Input label="Height (cm)" value={form.height_cm||""} type="number" onChange={set("height_cm")} />
+      </div>
+      <Input label="Weight (kg)" value={form.weight_kg||""} type="number" onChange={set("weight_kg")} />
+      <Select label="Goal" value={form.goal||""} onChange={set("goal")} options={["Fat Loss","Muscle Gain","Maintenance"]} />
+      <Input label="Progress %" value={form.progress_pct||""} type="number" onChange={set("progress_pct")} />
+      <div style={{ display:"flex", gap:10, paddingTop:4 }}>
+        <Btn variant="secondary" onClick={onClose} full>Cancel</Btn>
+        <Btn variant="primary" onClick={save} loading={saving} full>Save Changes</Btn>
+      </div>
+    </Modal>
+  );
+}
+
 // ─── Workout Tab ──────────────────────────────────────────────────────────────
-function WorkoutTab({ workout, clientId, token, reload }) {
+function WorkoutTab({ workout, clientId, token, reload, toast }) {
   const [expanded,  setExpanded]  = useState(0);
   const [addingDay, setAddingDay] = useState(false);
   const [addingEx,  setAddingEx]  = useState(null);
+  const [editEx,    setEditEx]    = useState(null);
   const [newDay,    setNewDay]    = useState({ dayLabel:"", dayFocus:"" });
   const [newEx,     setNewEx]     = useState({ name:"", sets:"3", reps:"10", notes:"", videoUrl:"" });
+  const [saving,    setSaving]    = useState(false);
+  const [confirmDeleteDay, setConfirmDeleteDay] = useState(null);
+  const [confirmDeleteEx,  setConfirmDeleteEx]  = useState(null);
 
   const createPlanThenDay = async () => {
-    if (!newDay.dayLabel) return;
-    let planId = workout?.id;
-    if (!planId) {
-      const plan = await workoutsAPI.createPlan(clientId, { name:"Training Plan" }, token);
-      planId = plan.id;
-    }
-    await workoutsAPI.addDay(planId, newDay, token);
-    setAddingDay(false); setNewDay({ dayLabel:"", dayFocus:"" }); reload();
+    if (!newDay.dayLabel.trim()) return;
+    setSaving(true);
+    try {
+      let planId = workout?.id;
+      if (!planId) {
+        const plan = await workoutsAPI.createPlan(clientId, { name:"Training Plan" }, token);
+        planId = plan.id;
+      }
+      await workoutsAPI.addDay(planId, newDay, token);
+      setAddingDay(false); setNewDay({ dayLabel:"", dayFocus:"" });
+      toast.success("Training day added"); reload();
+    } catch { toast.error("Failed to add day"); }
+    finally { setSaving(false); }
   };
 
   const addExercise = async (dayId) => {
-    if (!newEx.name) return;
-    await workoutsAPI.addExercise(dayId, { ...newEx, sets: +newEx.sets }, token);
-    setAddingEx(null); setNewEx({ name:"", sets:"3", reps:"10", notes:"", videoUrl:"" }); reload();
+    if (!newEx.name.trim()) return;
+    setSaving(true);
+    try {
+      await workoutsAPI.addExercise(dayId, { ...newEx, sets:+newEx.sets }, token);
+      setAddingEx(null); setNewEx({ name:"", sets:"3", reps:"10", notes:"", videoUrl:"" });
+      toast.success("Exercise added"); reload();
+    } catch { toast.error("Failed to add exercise"); }
+    finally { setSaving(false); }
   };
 
-  const removeDay = async (dayId) => {
-    await workoutsAPI.removeDay(dayId, token); reload();
+  const saveEditEx = async () => {
+    setSaving(true);
+    try {
+      await workoutsAPI.updateExercise(editEx.id, { name:editEx.name, sets:+editEx.sets, reps:editEx.reps, notes:editEx.notes, videoUrl:editEx.video_url }, token);
+      setEditEx(null); toast.success("Exercise updated"); reload();
+    } catch { toast.error("Failed to update"); }
+    finally { setSaving(false); }
   };
 
-  const removeEx = async (exId) => {
-    await workoutsAPI.removeExercise(exId, token); reload();
+  const deleteDay = async () => {
+    try { await workoutsAPI.removeDay(confirmDeleteDay.id, token); toast.success("Day removed"); reload(); }
+    catch { toast.error("Failed to remove day"); }
+    finally { setConfirmDeleteDay(null); }
+  };
+
+  const deleteEx = async () => {
+    try { await workoutsAPI.removeExercise(confirmDeleteEx.id, token); toast.success("Exercise removed"); reload(); }
+    catch { toast.error("Failed to remove exercise"); }
+    finally { setConfirmDeleteEx(null); }
   };
 
   const days = workout?.days || [];
@@ -147,62 +237,82 @@ function WorkoutTab({ workout, clientId, token, reload }) {
   return (
     <div>
       {days.length === 0 && !addingDay && (
-        <div style={{ textAlign:"center", padding:"60px 0", color:"var(--muted)" }}>
-          <div style={{ fontSize:48 }}>🏋️</div>
-          <p style={{ fontWeight:700, marginTop:10 }}>No workout plan yet</p>
-        </div>
+        <Empty icon="🏋️" title="No workout plan yet" subtitle="Add training days to build this client's program." action={() => setAddingDay(true)} actionLabel="+ Add Training Day" />
       )}
+
       {days.map((day, dayIdx) => (
-        <Card key={day.id} style={{ marginBottom:12, overflow:"hidden", padding:0 }}>
-          <button onClick={() => setExpanded(expanded===dayIdx?-1:dayIdx)}
-            style={{ width:"100%", background:"none", border:"none", cursor:"pointer", padding:"16px 18px", display:"flex", justifyContent:"space-between", alignItems:"center", fontFamily:"var(--font-body)" }}>
-            <div style={{ display:"flex", alignItems:"center", gap:10, textAlign:"left" }}>
-              <div style={{ width:32, height:32, borderRadius:10, background:"var(--royal-pale)", display:"flex", alignItems:"center", justifyContent:"center", fontSize:14, fontWeight:800, color:"var(--royal)", flexShrink:0 }}>{dayIdx+1}</div>
+        <Card key={day.id} noPad style={{ marginBottom:12 }}>
+          {/* Day header */}
+          <button onClick={() => setExpanded(expanded===dayIdx ? -1 : dayIdx)}
+            style={{ width:"100%", background:"none", border:"none", cursor:"pointer", padding:"15px 18px", display:"flex", justifyContent:"space-between", alignItems:"center", fontFamily:"var(--font-body)" }}>
+            <div style={{ display:"flex", alignItems:"center", gap:11, textAlign:"left" }}>
+              <div style={{ width:34, height:34, borderRadius:10, background:"var(--royal-pale)", display:"flex", alignItems:"center", justifyContent:"center", fontSize:14, fontWeight:800, color:"var(--royal)", flexShrink:0 }}>{dayIdx+1}</div>
               <div>
-                <div style={{ fontWeight:800, fontSize:15, color:"var(--text)" }}>{day.day_label}</div>
-                <div style={{ fontSize:12, color:"var(--muted)" }}>{day.day_focus}</div>
+                <div style={{ fontWeight:700, fontSize:15, color:"var(--text)", fontFamily:"var(--font-display)" }}>{day.day_label}</div>
+                <div style={{ fontSize:12, color:"var(--muted)", marginTop:1 }}>{day.day_focus || "—"} · {day.exercises?.length||0} exercises</div>
               </div>
             </div>
-            <div style={{ display:"flex", alignItems:"center", gap:10 }}>
-              <span style={{ fontSize:12, color:"var(--muted)" }}>{day.exercises?.length || 0} exercises</span>
-              <button onClick={e=>{e.stopPropagation();removeDay(day.id)}} style={{ background:"none", border:"none", cursor:"pointer", fontSize:16, color:"var(--muted)" }}>🗑</button>
-              <span style={{ color:"var(--royal)", fontSize:18 }}>{expanded===dayIdx?"⌃":"⌄"}</span>
+            <div style={{ display:"flex", alignItems:"center", gap:8 }}>
+              <button onClick={e => { e.stopPropagation(); setConfirmDeleteDay(day); }}
+                style={{ background:"none", border:"none", cursor:"pointer", fontSize:15, color:"var(--muted2)", padding:4, transition:"color 0.15s" }}
+                onMouseEnter={e => e.target.style.color="var(--rose)"}
+                onMouseLeave={e => e.target.style.color="var(--muted2)"}>🗑</button>
+              <span style={{ color:"var(--muted)", fontSize:16 }}>{expanded===dayIdx ? "▲" : "▼"}</span>
             </div>
           </button>
 
           {expanded===dayIdx && (
             <div style={{ borderTop:"1px solid var(--line)", padding:"12px 18px" }}>
+              {day.exercises?.length === 0 && (
+                <p style={{ fontSize:13, color:"var(--muted)", textAlign:"center", padding:"12px 0" }}>No exercises yet.</p>
+              )}
               {day.exercises?.map(ex => (
-                <div key={ex.id} style={{ display:"flex", alignItems:"flex-start", gap:12, padding:"12px 0", borderBottom:"1px solid var(--line)" }}>
+                <div key={ex.id} style={{ display:"flex", alignItems:"flex-start", gap:11, padding:"11px 0", borderBottom:"1px solid var(--line)" }}>
                   <div style={{ flex:1 }}>
-                    <div style={{ fontWeight:700, fontSize:14, color:"var(--text)" }}>{ex.name}</div>
+                    <div style={{ fontWeight:600, fontSize:14, color:"var(--text)" }}>{ex.name}</div>
                     <div style={{ fontSize:12, color:"var(--muted)", marginTop:2 }}>
-                      <span style={{ fontWeight:700, color:"var(--royal)" }}>{ex.sets}</span> sets × <span style={{ fontWeight:700, color:"var(--royal)" }}>{ex.reps}</span> reps
+                      <span style={{ fontWeight:700, color:"var(--royal)" }}>{ex.sets}</span> × <span style={{ fontWeight:700, color:"var(--royal)" }}>{ex.reps}</span>
                       {ex.notes && <span style={{ fontStyle:"italic" }}> · {ex.notes}</span>}
                     </div>
-                    {ex.video_url && <a href={ex.video_url} target="_blank" rel="noreferrer" style={{ display:"inline-flex", alignItems:"center", gap:5, marginTop:6, background:"var(--amber)", color:"#fff", borderRadius:8, padding:"4px 10px", fontSize:11, fontWeight:700, textDecoration:"none" }}>▶ Demo</a>}
+                    {ex.video_url && (
+                      <a href={ex.video_url} target="_blank" rel="noreferrer"
+                        style={{ display:"inline-flex", alignItems:"center", gap:4, marginTop:5, background:"var(--amber)", color:"#fff", borderRadius:7, padding:"3px 9px", fontSize:11, fontWeight:700, textDecoration:"none" }}>
+                        ▶ Demo
+                      </a>
+                    )}
                   </div>
-                  <button onClick={() => removeEx(ex.id)} style={{ background:"none", border:"none", cursor:"pointer", fontSize:14, color:"var(--muted)" }}>✕</button>
+                  <div style={{ display:"flex", gap:4 }}>
+                    <button onClick={() => setEditEx({ ...ex })}
+                      style={{ background:"var(--bg2)", border:"1px solid var(--line)", borderRadius:7, padding:"5px 8px", cursor:"pointer", fontSize:12, color:"var(--text2)", fontFamily:"var(--font-body)" }}>
+                      ✏️
+                    </button>
+                    <button onClick={() => setConfirmDeleteEx(ex)}
+                      style={{ background:"none", border:"none", cursor:"pointer", fontSize:14, color:"var(--muted2)", padding:4 }}
+                      onMouseEnter={e => e.target.style.color="var(--rose)"}
+                      onMouseLeave={e => e.target.style.color="var(--muted2)"}>✕</button>
+                  </div>
                 </div>
               ))}
 
               {addingEx===day.id ? (
-                <div style={{ background:"var(--royal-pale)", borderRadius:14, padding:16, marginTop:10 }}>
-                  <Input label="Exercise Name" value={newEx.name} onChange={e=>setNewEx(p=>({...p,name:e.target.value}))} />
+                <div style={{ background:"var(--royal-pale)", borderRadius:12, padding:14, marginTop:12 }}>
+                  <Input label="Exercise Name" value={newEx.name} onChange={e=>setNewEx(p=>({...p,name:e.target.value}))} autoFocus />
                   <div style={{ display:"grid", gridTemplateColumns:"1fr 1fr", gap:10 }}>
                     <Input label="Sets" value={newEx.sets} type="number" onChange={e=>setNewEx(p=>({...p,sets:e.target.value}))} />
                     <Input label="Reps" value={newEx.reps} onChange={e=>setNewEx(p=>({...p,reps:e.target.value}))} />
                   </div>
-                  <Input label="Notes" value={newEx.notes} onChange={e=>setNewEx(p=>({...p,notes:e.target.value}))} />
-                  <Input label="Video URL" value={newEx.videoUrl} onChange={e=>setNewEx(p=>({...p,videoUrl:e.target.value}))} />
+                  <Input label="Notes (optional)" value={newEx.notes} onChange={e=>setNewEx(p=>({...p,notes:e.target.value}))} />
+                  <Input label="Video URL (optional)" value={newEx.videoUrl} onChange={e=>setNewEx(p=>({...p,videoUrl:e.target.value}))} />
                   <div style={{ display:"flex", gap:8 }}>
-                    <Btn variant="primary" onClick={() => addExercise(day.id)} full>Add</Btn>
+                    <Btn variant="primary" onClick={() => addExercise(day.id)} loading={saving} full>Add Exercise</Btn>
                     <Btn variant="secondary" onClick={() => setAddingEx(null)} full>Cancel</Btn>
                   </div>
                 </div>
               ) : (
-                <button onClick={() => setAddingEx(day.id)}
-                  style={{ width:"100%", background:"none", border:"1.5px dashed var(--line)", borderRadius:10, padding:10, cursor:"pointer", color:"var(--royal)", fontWeight:700, fontSize:13, marginTop:10, fontFamily:"var(--font-body)" }}>
+                <button onClick={() => { setAddingEx(day.id); setNewEx({ name:"", sets:"3", reps:"10", notes:"", videoUrl:"" }); }}
+                  style={{ width:"100%", background:"none", border:"1.5px dashed var(--line2)", borderRadius:10, padding:10, cursor:"pointer", color:"var(--royal)", fontWeight:600, fontSize:13, marginTop:10, fontFamily:"var(--font-body)", transition:"background 0.15s" }}
+                  onMouseEnter={e => e.currentTarget.style.background="var(--royal-pale)"}
+                  onMouseLeave={e => e.currentTarget.style.background="none"}>
                   + Add Exercise
                 </button>
               )}
@@ -212,111 +322,188 @@ function WorkoutTab({ workout, clientId, token, reload }) {
       ))}
 
       {addingDay ? (
-        <Card style={{ padding:18, marginTop:8 }}>
+        <Card style={{ marginTop:8 }}>
+          <p style={{ fontWeight:700, fontSize:14, color:"var(--text)", marginBottom:14, fontFamily:"var(--font-display)" }}>New Training Day</p>
           <div style={{ display:"grid", gridTemplateColumns:"1fr 1fr", gap:10 }}>
-            <Input label="Day" value={newDay.dayLabel} onChange={e=>setNewDay(p=>({...p,dayLabel:e.target.value}))} placeholder="Day 1" />
+            <Input label="Day Label" value={newDay.dayLabel} onChange={e=>setNewDay(p=>({...p,dayLabel:e.target.value}))} placeholder="Day 1" autoFocus />
             <Input label="Focus" value={newDay.dayFocus} onChange={e=>setNewDay(p=>({...p,dayFocus:e.target.value}))} placeholder="Upper Body" />
           </div>
           <div style={{ display:"flex", gap:8 }}>
-            <Btn variant="primary" onClick={createPlanThenDay} full>Add Day</Btn>
+            <Btn variant="primary" onClick={createPlanThenDay} loading={saving} full>Add Day</Btn>
             <Btn variant="secondary" onClick={() => setAddingDay(false)} full>Cancel</Btn>
           </div>
         </Card>
       ) : (
-        <Btn variant="secondary" onClick={() => setAddingDay(true)} full style={{ marginTop:8, borderRadius:14 }}>+ Add Training Day</Btn>
+        days.length > 0 && <Btn variant="secondary" onClick={() => setAddingDay(true)} full style={{ marginTop:8, borderRadius:12 }}>+ Add Training Day</Btn>
       )}
+
+      {/* Edit Exercise Modal */}
+      <Modal open={!!editEx} onClose={() => setEditEx(null)} title="Edit Exercise">
+        {editEx && (
+          <div>
+            <Input label="Exercise Name" value={editEx.name} onChange={e=>setEditEx(p=>({...p,name:e.target.value}))} />
+            <div style={{ display:"grid", gridTemplateColumns:"1fr 1fr", gap:10 }}>
+              <Input label="Sets" value={editEx.sets} type="number" onChange={e=>setEditEx(p=>({...p,sets:e.target.value}))} />
+              <Input label="Reps" value={editEx.reps} onChange={e=>setEditEx(p=>({...p,reps:e.target.value}))} />
+            </div>
+            <Input label="Notes" value={editEx.notes||""} onChange={e=>setEditEx(p=>({...p,notes:e.target.value}))} />
+            <Input label="Video URL" value={editEx.video_url||""} onChange={e=>setEditEx(p=>({...p,video_url:e.target.value}))} />
+            <div style={{ display:"flex", gap:10 }}>
+              <Btn variant="secondary" onClick={() => setEditEx(null)} full>Cancel</Btn>
+              <Btn variant="primary" onClick={saveEditEx} loading={saving} full>Save Changes</Btn>
+            </div>
+          </div>
+        )}
+      </Modal>
+
+      {/* Confirm delete day */}
+      <ConfirmModal open={!!confirmDeleteDay} onClose={() => setConfirmDeleteDay(null)} onConfirm={deleteDay} title="Remove Day" message={`Remove "${confirmDeleteDay?.day_label}" and all its exercises?`} confirmLabel="Remove Day" />
+      {/* Confirm delete exercise */}
+      <ConfirmModal open={!!confirmDeleteEx} onClose={() => setConfirmDeleteEx(null)} onConfirm={deleteEx} title="Remove Exercise" message={`Remove "${confirmDeleteEx?.name}" from this day?`} confirmLabel="Remove Exercise" />
     </div>
   );
 }
 
 // ─── Nutrition Tab ────────────────────────────────────────────────────────────
-function NutritionTab({ nutrition, clientId, token, reload }) {
+function NutritionTab({ nutrition, clientId, token, reload, toast }) {
   const [editTargets, setEditTargets] = useState(false);
-  const [targets, setTargets] = useState({ calories: nutrition?.calories||2000, proteinG: nutrition?.protein_g||150, carbsG: nutrition?.carbs_g||200, fatsG: nutrition?.fats_g||65 });
+  const [targets, setTargets] = useState({ calories:nutrition?.calories||2000, proteinG:nutrition?.protein_g||150, carbsG:nutrition?.carbs_g||200, fatsG:nutrition?.fats_g||65 });
   const [addingMeal, setAddingMeal] = useState(false);
+  const [editMeal,   setEditMeal]   = useState(null);
   const [newMeal, setNewMeal] = useState({ name:"", icon:"🍽️", foods:"", calories:"", proteinG:"", carbsG:"", fatsG:"" });
+  const [saving, setSaving] = useState(false);
+  const [confirmDelMeal, setConfirmDelMeal] = useState(null);
+
+  useEffect(() => {
+    if (nutrition) setTargets({ calories:nutrition.calories, proteinG:nutrition.protein_g, carbsG:nutrition.carbs_g, fatsG:nutrition.fats_g });
+  }, [nutrition]);
 
   const saveTargets = async () => {
-    if (nutrition) {
-      await nutritionAPI.updatePlan(nutrition.id, targets, token);
-    } else {
-      await nutritionAPI.createPlan(clientId, targets, token);
-    }
-    setEditTargets(false); reload();
+    setSaving(true);
+    try {
+      if (nutrition) await nutritionAPI.updatePlan(nutrition.id, targets, token);
+      else await nutritionAPI.createPlan(clientId, targets, token);
+      setEditTargets(false); toast.success("Targets saved"); reload();
+    } catch { toast.error("Failed to save"); }
+    finally { setSaving(false); }
   };
 
   const addMeal = async () => {
-    if (!newMeal.name) return;
-    let planId = nutrition?.id;
-    if (!planId) {
-      const plan = await nutritionAPI.createPlan(clientId, targets, token);
-      planId = plan.id;
-    }
-    await nutritionAPI.addMeal(planId, newMeal, token);
-    setAddingMeal(false); setNewMeal({ name:"", icon:"🍽️", foods:"", calories:"", proteinG:"", carbsG:"", fatsG:"" }); reload();
+    if (!newMeal.name.trim()) return;
+    setSaving(true);
+    try {
+      let planId = nutrition?.id;
+      if (!planId) { const p = await nutritionAPI.createPlan(clientId, targets, token); planId = p.id; }
+      await nutritionAPI.addMeal(planId, newMeal, token);
+      setAddingMeal(false); setNewMeal({ name:"", icon:"🍽️", foods:"", calories:"", proteinG:"", carbsG:"", fatsG:"" });
+      toast.success("Meal added"); reload();
+    } catch { toast.error("Failed to add meal"); }
+    finally { setSaving(false); }
   };
 
-  const removeMeal = async (mealId) => {
-    await nutritionAPI.removeMeal(mealId, token); reload();
+  const saveMealEdit = async () => {
+    setSaving(true);
+    try {
+      await nutritionAPI.updateMeal(editMeal.id, { name:editMeal.name, icon:editMeal.icon, foods:editMeal.foods, calories:+editMeal.calories, proteinG:+editMeal.protein_g, carbsG:+editMeal.carbs_g, fatsG:+editMeal.fats_g }, token);
+      setEditMeal(null); toast.success("Meal updated"); reload();
+    } catch { toast.error("Failed to update"); }
+    finally { setSaving(false); }
+  };
+
+  const deleteMeal = async () => {
+    try { await nutritionAPI.removeMeal(confirmDelMeal.id, token); toast.success("Meal removed"); reload(); }
+    catch { toast.error("Failed to remove"); }
+    finally { setConfirmDelMeal(null); }
   };
 
   const n = nutrition;
+  const totalCal = n?.meals?.reduce((s,m) => s+m.calories, 0) || 0;
 
   return (
     <div>
-      <Card style={{ padding:"20px 16px", marginBottom:16 }}>
+      {/* Targets card */}
+      <Card style={{ marginBottom:16 }}>
         <div style={{ display:"flex", justifyContent:"space-between", alignItems:"center", marginBottom:16 }}>
           <div>
-            <div style={{ fontSize:32, fontWeight:900, color:"var(--text)", letterSpacing:"-0.03em" }}>
-              {n?.calories || "—"}<span style={{ fontSize:16, fontWeight:600, color:"var(--muted)" }}> kcal</span>
+            <div style={{ fontSize:30, fontWeight:800, color:"var(--text)", letterSpacing:"-0.04em", fontFamily:"var(--font-display)" }}>
+              {n?.calories || "—"}<span style={{ fontSize:15, fontWeight:500, color:"var(--muted)" }}> kcal</span>
             </div>
-            <div style={{ fontSize:12, color:"var(--muted)" }}>Daily target</div>
+            <div style={{ fontSize:12, color: totalCal > (n?.calories||0) ? "var(--rose)" : "var(--emerald)", fontWeight:600, marginTop:2 }}>
+              {totalCal} kcal planned {totalCal > (n?.calories||0) ? "⚠️ over target" : "✓"}
+            </div>
           </div>
-          <Btn variant="ghost" onClick={() => setEditTargets(!editTargets)} style={{ fontSize:13 }}>{editTargets?"Cancel":"Edit"}</Btn>
+          <Btn variant="ghost" size="sm" onClick={() => setEditTargets(!editTargets)}>{editTargets ? "Cancel" : "Edit Targets"}</Btn>
         </div>
 
         {editTargets ? (
           <div>
-            {[["calories","Calories (kcal)"],["proteinG","Protein (g)"],["carbsG","Carbs (g)"],["fatsG","Fats (g)"]].map(([k,l]) => (
-              <Input key={k} label={l} value={targets[k]} type="number" onChange={e=>setTargets(p=>({...p,[k]:e.target.value}))} />
-            ))}
-            <Btn variant="primary" onClick={saveTargets} full>Save Targets</Btn>
+            <div style={{ display:"grid", gridTemplateColumns:"1fr 1fr", gap:10 }}>
+              <Input label="Calories" value={targets.calories} type="number" onChange={e=>setTargets(p=>({...p,calories:e.target.value}))} />
+              <Input label="Protein (g)" value={targets.proteinG} type="number" onChange={e=>setTargets(p=>({...p,proteinG:e.target.value}))} />
+              <Input label="Carbs (g)" value={targets.carbsG} type="number" onChange={e=>setTargets(p=>({...p,carbsG:e.target.value}))} />
+              <Input label="Fats (g)" value={targets.fatsG} type="number" onChange={e=>setTargets(p=>({...p,fatsG:e.target.value}))} />
+            </div>
+            <Btn variant="primary" onClick={saveTargets} loading={saving} full>Save Targets</Btn>
           </div>
         ) : (
           <div style={{ display:"grid", gridTemplateColumns:"1fr 1fr 1fr", gap:8, justifyItems:"center" }}>
             <MacroRing label="Protein" value={n?.protein_g||0} color="var(--royal)" />
             <MacroRing label="Carbs"   value={n?.carbs_g||0}   color="var(--amber)" />
-            <MacroRing label="Fats"    value={n?.fats_g||0}    color="var(--royal-pale2)" />
+            <MacroRing label="Fats"    value={n?.fats_g||0}    color="#8B5CF6" />
           </div>
         )}
       </Card>
 
+      {/* Calorie bar */}
+      {n && (
+        <div style={{ background:"var(--white)", borderRadius:"var(--radius)", border:"1px solid var(--line)", padding:"12px 16px", marginBottom:16 }}>
+          <div style={{ display:"flex", justifyContent:"space-between", marginBottom:7 }}>
+            <span style={{ fontSize:12, fontWeight:600, color:"var(--text2)" }}>Planned: {totalCal} kcal</span>
+            <span style={{ fontSize:12, fontWeight:600, color:"var(--royal)" }}>Target: {n.calories} kcal</span>
+          </div>
+          <ProgressBar value={(totalCal/n.calories)*100} color={totalCal > n.calories ? "var(--rose)" : "var(--royal)"} height={7} />
+        </div>
+      )}
+
       <SectionHeader title="Meals" />
+
+      {(!n || n.meals?.length === 0) && !addingMeal && (
+        <Empty icon="🍎" title="No meals added" subtitle="Build this client's daily meal plan." action={() => setAddingMeal(true)} actionLabel="+ Add Meal" />
+      )}
+
       {n?.meals?.map(meal => (
-        <Card key={meal.id} style={{ padding:"14px 16px", marginBottom:10 }}>
+        <Card key={meal.id} style={{ marginBottom:10 }}>
           <div style={{ display:"flex", justifyContent:"space-between", alignItems:"flex-start" }}>
             <div style={{ display:"flex", gap:12, alignItems:"flex-start" }}>
               <div style={{ width:38, height:38, borderRadius:11, background:"var(--royal-pale)", display:"flex", alignItems:"center", justifyContent:"center", fontSize:18, flexShrink:0 }}>{meal.icon}</div>
               <div>
-                <div style={{ fontWeight:800, fontSize:14, color:"var(--text)" }}>{meal.name}</div>
-                <div style={{ fontSize:12, color:"var(--muted)", marginTop:2 }}>{meal.foods}</div>
+                <div style={{ fontWeight:700, fontSize:14, color:"var(--text)", fontFamily:"var(--font-display)" }}>{meal.name}</div>
+                <div style={{ fontSize:12, color:"var(--muted)", marginTop:2, lineHeight:1.5 }}>{meal.foods}</div>
                 <div style={{ display:"flex", flexWrap:"wrap", gap:5, marginTop:8 }}>
                   <Badge label={`${meal.calories} kcal`} color="var(--amber)" />
                   <Badge label={`P ${meal.protein_g}g`}  color="var(--royal)" />
-                  <Badge label={`C ${meal.carbs_g}g`}    color="var(--royal)" />
-                  <Badge label={`F ${meal.fats_g}g`}     color="var(--muted)" />
+                  <Badge label={`C ${meal.carbs_g}g`}    color="var(--emerald)" />
+                  <Badge label={`F ${meal.fats_g}g`}     color="#8B5CF6" />
                 </div>
               </div>
             </div>
-            <button onClick={() => removeMeal(meal.id)} style={{ background:"none", border:"none", cursor:"pointer", fontSize:16, color:"var(--muted)" }}>✕</button>
+            <div style={{ display:"flex", gap:4, flexShrink:0 }}>
+              <button onClick={() => setEditMeal({ ...meal })}
+                style={{ background:"var(--bg2)", border:"1px solid var(--line)", borderRadius:7, padding:"5px 8px", cursor:"pointer", fontSize:12, color:"var(--text2)" }}>✏️</button>
+              <button onClick={() => setConfirmDelMeal(meal)}
+                style={{ background:"none", border:"none", cursor:"pointer", fontSize:14, color:"var(--muted2)", padding:4 }}
+                onMouseEnter={e => e.target.style.color="var(--rose)"}
+                onMouseLeave={e => e.target.style.color="var(--muted2)"}>✕</button>
+            </div>
           </div>
         </Card>
       ))}
 
       {addingMeal ? (
-        <Card style={{ padding:18, marginTop:8 }}>
+        <Card style={{ marginTop:8 }}>
+          <p style={{ fontWeight:700, fontSize:14, color:"var(--text)", marginBottom:14, fontFamily:"var(--font-display)" }}>New Meal</p>
           <div style={{ display:"grid", gridTemplateColumns:"3fr 1fr", gap:10 }}>
-            <Input label="Meal Name" value={newMeal.name} onChange={e=>setNewMeal(p=>({...p,name:e.target.value}))} placeholder="Breakfast" />
+            <Input label="Meal Name" value={newMeal.name} onChange={e=>setNewMeal(p=>({...p,name:e.target.value}))} placeholder="Breakfast" autoFocus />
             <Input label="Icon" value={newMeal.icon} onChange={e=>setNewMeal(p=>({...p,icon:e.target.value}))} />
           </div>
           <Input label="Foods" value={newMeal.foods} onChange={e=>setNewMeal(p=>({...p,foods:e.target.value}))} placeholder="Eggs, oats, banana" />
@@ -327,110 +514,169 @@ function NutritionTab({ nutrition, clientId, token, reload }) {
             <Input label="Fats (g)" value={newMeal.fatsG} type="number" onChange={e=>setNewMeal(p=>({...p,fatsG:e.target.value}))} />
           </div>
           <div style={{ display:"flex", gap:8 }}>
-            <Btn variant="primary" onClick={addMeal} full>Add Meal</Btn>
+            <Btn variant="primary" onClick={addMeal} loading={saving} full>Add Meal</Btn>
             <Btn variant="secondary" onClick={() => setAddingMeal(false)} full>Cancel</Btn>
           </div>
         </Card>
       ) : (
-        <Btn variant="secondary" onClick={() => setAddingMeal(true)} full style={{ marginTop:8, borderRadius:14 }}>+ Add Meal</Btn>
+        n?.meals?.length > 0 && <Btn variant="secondary" onClick={() => setAddingMeal(true)} full style={{ marginTop:8, borderRadius:12 }}>+ Add Meal</Btn>
       )}
+
+      {/* Edit meal modal */}
+      <Modal open={!!editMeal} onClose={() => setEditMeal(null)} title="Edit Meal">
+        {editMeal && (
+          <div>
+            <div style={{ display:"grid", gridTemplateColumns:"3fr 1fr", gap:10 }}>
+              <Input label="Meal Name" value={editMeal.name} onChange={e=>setEditMeal(p=>({...p,name:e.target.value}))} />
+              <Input label="Icon" value={editMeal.icon} onChange={e=>setEditMeal(p=>({...p,icon:e.target.value}))} />
+            </div>
+            <Input label="Foods" value={editMeal.foods||""} onChange={e=>setEditMeal(p=>({...p,foods:e.target.value}))} />
+            <div style={{ display:"grid", gridTemplateColumns:"1fr 1fr", gap:10 }}>
+              <Input label="Calories" value={editMeal.calories} type="number" onChange={e=>setEditMeal(p=>({...p,calories:e.target.value}))} />
+              <Input label="Protein (g)" value={editMeal.protein_g} type="number" onChange={e=>setEditMeal(p=>({...p,protein_g:e.target.value}))} />
+              <Input label="Carbs (g)" value={editMeal.carbs_g} type="number" onChange={e=>setEditMeal(p=>({...p,carbs_g:e.target.value}))} />
+              <Input label="Fats (g)" value={editMeal.fats_g} type="number" onChange={e=>setEditMeal(p=>({...p,fats_g:e.target.value}))} />
+            </div>
+            <div style={{ display:"flex", gap:10 }}>
+              <Btn variant="secondary" onClick={() => setEditMeal(null)} full>Cancel</Btn>
+              <Btn variant="primary" onClick={saveMealEdit} loading={saving} full>Save Changes</Btn>
+            </div>
+          </div>
+        )}
+      </Modal>
+      <ConfirmModal open={!!confirmDelMeal} onClose={() => setConfirmDelMeal(null)} onConfirm={deleteMeal} title="Remove Meal" message={`Remove "${confirmDelMeal?.name}" from the plan?`} confirmLabel="Remove Meal" />
     </div>
   );
 }
 
 // ─── Equipment Tab ────────────────────────────────────────────────────────────
-function EquipmentTab({ clientId, token, equipment, reload }) {
-  const [selected, setSelected] = useState(equipment);
-  const ITEMS = ["Dumbbells","Barbell","Machines","Resistance Bands","Pull-Up Bar","Kettlebells","Cable Machine","Foam Roller","Home","Gym","Outdoor"];
+function EquipmentTab({ clientId, token, equipment, reload, toast }) {
+  const [selected, setSelected] = useState(equipment || []);
+  const [saving, setSaving] = useState(false);
+  const ITEMS = [
+    { label:"Dumbbells", icon:"🏋️" },{ label:"Barbell", icon:"⚡" },
+    { label:"Machines", icon:"⚙️" },{ label:"Resistance Bands", icon:"🔄" },
+    { label:"Pull-Up Bar", icon:"🏅" },{ label:"Kettlebells", icon:"🔔" },
+    { label:"Cable Machine", icon:"📡" },{ label:"Foam Roller", icon:"🧻" },
+  ];
+  const LOCATIONS = [{ label:"Home", icon:"🏠" }, { label:"Gym", icon:"🏟️" }, { label:"Outdoor", icon:"🌲" }];
 
-  const toggle = (item) => setSelected(p => p.includes(item) ? p.filter(e=>e!==item) : [...p, item]);
+  const toggle = (item) => setSelected(p => p.includes(item) ? p.filter(e=>e!==item) : [...p,item]);
 
   const save = async () => {
-    await clientsAPI.setEquipment(clientId, selected, token); reload();
+    setSaving(true);
+    try { await clientsAPI.setEquipment(clientId, selected, token); toast.success("Equipment saved"); reload(); }
+    catch { toast.error("Failed to save"); }
+    finally { setSaving(false); }
   };
 
   return (
     <div>
-      <p style={{ fontSize:13, color:"var(--muted)", marginBottom:16, lineHeight:1.6 }}>Tap to toggle available equipment.</p>
-      <div style={{ display:"grid", gridTemplateColumns:"1fr 1fr", gap:10, marginBottom:16 }}>
-        {ITEMS.map(item => {
-          const active = selected.includes(item);
+      <p style={{ fontSize:13, color:"var(--muted)", marginBottom:18, lineHeight:1.6 }}>Select available equipment to customise workout recommendations.</p>
+
+      <SectionHeader title="Training Location" />
+      <div style={{ display:"flex", gap:10, marginBottom:24 }}>
+        {LOCATIONS.map(loc => {
+          const active = selected.includes(loc.label);
           return (
-            <button key={item} onClick={() => toggle(item)}
-              style={{ borderRadius:14, border:`2px solid ${active?"var(--royal)":"var(--line)"}`, background: active?"var(--royal-pale)":"var(--white)", color: active?"var(--royal)":"var(--text2)", padding:"12px", fontSize:13, fontWeight: active?800:500, cursor:"pointer", fontFamily:"var(--font-body)", transition:"all 0.15s", textAlign:"left" }}>
-              {active?"✓ ":""}{item}
+            <button key={loc.label} onClick={() => toggle(loc.label)}
+              style={{ flex:1, borderRadius:"var(--radius)", border:`2px solid ${active ? "var(--royal)" : "var(--line)"}`, background: active ? "var(--royal-pale)" : "var(--white)", color: active ? "var(--royal)" : "var(--muted)", padding:"14px 8px", fontSize:13, fontWeight: active ? 700 : 500, cursor:"pointer", fontFamily:"var(--font-body)", transition:"all 0.15s", display:"flex", flexDirection:"column", alignItems:"center", gap:5 }}>
+              <span style={{ fontSize:22 }}>{loc.icon}</span>
+              <span style={{ fontSize:12 }}>{loc.label}</span>
             </button>
           );
         })}
       </div>
-      <Btn variant="primary" onClick={save} full style={{ borderRadius:14 }}>Save Equipment</Btn>
+
+      <SectionHeader title="Equipment Available" />
+      <div style={{ display:"grid", gridTemplateColumns:"1fr 1fr", gap:10, marginBottom:20 }}>
+        {ITEMS.map(item => {
+          const active = selected.includes(item.label);
+          return (
+            <button key={item.label} onClick={() => toggle(item.label)}
+              style={{ borderRadius:"var(--radius)", border:`1.5px solid ${active ? "var(--royal)" : "var(--line)"}`, background: active ? "var(--royal-pale)" : "var(--white)", color: active ? "var(--royal)" : "var(--text2)", padding:"13px 12px", fontSize:13, fontWeight: active ? 700 : 500, cursor:"pointer", fontFamily:"var(--font-body)", transition:"all 0.15s", display:"flex", alignItems:"center", gap:8, textAlign:"left" }}>
+              <span style={{ fontSize:20 }}>{item.icon}</span>
+              {active && <span style={{ fontSize:11 }}>✓ </span>}{item.label}
+            </button>
+          );
+        })}
+      </div>
+      <Btn variant="primary" onClick={save} loading={saving} full style={{ borderRadius:12 }}>Save Equipment</Btn>
     </div>
   );
 }
 
 // ─── Medical Tab ──────────────────────────────────────────────────────────────
-function MedicalTab({ medical, clientId, token, reload }) {
+function MedicalTab({ medical, clientId, token, reload, toast }) {
   const [adding, setAdding] = useState(false);
-  const [form,   setForm]   = useState({ type:"note", text:"" });
+  const [editRec, setEditRec] = useState(null);
+  const [form,    setForm]   = useState({ type:"note", text:"" });
+  const [saving,  setSaving] = useState(false);
+  const [confirmDel, setConfirmDel] = useState(null);
 
   const add = async () => {
-    if (!form.text) return;
-    await medicalAPI.add(clientId, form, token);
-    setAdding(false); setForm({ type:"note", text:"" }); reload();
+    if (!form.text.trim()) return;
+    setSaving(true);
+    try { await medicalAPI.add(clientId, form, token); setAdding(false); setForm({ type:"note", text:"" }); toast.success("Record added"); reload(); }
+    catch { toast.error("Failed to add record"); }
+    finally { setSaving(false); }
   };
 
-  const remove = async (id) => {
-    await medicalAPI.remove(id, token); reload();
+  const deleteRec = async () => {
+    try { await medicalAPI.remove(confirmDel.id, token); toast.success("Record removed"); reload(); }
+    catch { toast.error("Failed to remove"); }
+    finally { setConfirmDel(null); }
   };
 
   const META = {
-    note:        { icon:"📋", color:"var(--royal)" },
-    injury:      { icon:"🩹", color:"var(--amber)" },
-    restriction: { icon:"⚠️", color:"var(--rose)" },
+    note:        { icon:"📋", color:"var(--royal)",   bg:"var(--royal-pale)" },
+    injury:      { icon:"🩹", color:"var(--amber)",   bg:"var(--amber-pale)" },
+    restriction: { icon:"⚠️", color:"var(--rose)",    bg:"var(--rose-pale)" },
   };
 
   return (
     <div>
       {medical.length === 0 && !adding && (
-        <div style={{ textAlign:"center", padding:"60px 0", color:"var(--muted)" }}>
-          <div style={{ fontSize:48 }}>🏥</div>
-          <p style={{ fontWeight:700, marginTop:10 }}>No medical records</p>
-        </div>
+        <Empty icon="🏥" title="No medical records" subtitle="Add notes, injuries, or restrictions for this client." action={() => setAdding(true)} actionLabel="+ Add Record" />
       )}
+
       {medical.map(m => {
         const meta = META[m.type] || META.note;
         return (
-          <Card key={m.id} style={{ padding:"16px 18px", marginBottom:10, borderLeft:`4px solid ${meta.color}` }}>
+          <Card key={m.id} style={{ marginBottom:10, borderLeft:`4px solid ${meta.color}`, paddingLeft:16 }}>
             <div style={{ display:"flex", justifyContent:"space-between", alignItems:"flex-start" }}>
-              <div>
+              <div style={{ flex:1 }}>
                 <div style={{ display:"flex", alignItems:"center", gap:8, marginBottom:8 }}>
-                  <span style={{ fontSize:18 }}>{meta.icon}</span>
+                  <div style={{ width:28, height:28, borderRadius:8, background:meta.bg, display:"flex", alignItems:"center", justifyContent:"center", fontSize:14 }}>{meta.icon}</div>
                   <Badge label={m.type.charAt(0).toUpperCase()+m.type.slice(1)} color={meta.color} />
                 </div>
-                <p style={{ margin:0, fontSize:14, color:"var(--text)", lineHeight:1.6 }}>{m.text}</p>
+                <p style={{ margin:0, fontSize:14, color:"var(--text2)", lineHeight:1.65 }}>{m.text}</p>
+                <p style={{ fontSize:11, color:"var(--muted)", marginTop:6 }}>{new Date(m.created_at).toLocaleDateString("en-GB", { day:"numeric", month:"short", year:"numeric" })}</p>
               </div>
-              <button onClick={() => remove(m.id)} style={{ background:"none", border:"none", cursor:"pointer", fontSize:16, color:"var(--muted)", marginLeft:8 }}>✕</button>
+              <button onClick={() => setConfirmDel(m)}
+                style={{ background:"none", border:"none", cursor:"pointer", fontSize:15, color:"var(--muted2)", marginLeft:8, padding:4, flexShrink:0 }}
+                onMouseEnter={e => e.target.style.color="var(--rose)"}
+                onMouseLeave={e => e.target.style.color="var(--muted2)"}>✕</button>
             </div>
           </Card>
         );
       })}
+
       {adding ? (
-        <Card style={{ padding:18, marginTop:8 }}>
+        <Card style={{ marginTop:8 }}>
+          <p style={{ fontWeight:700, fontSize:14, color:"var(--text)", marginBottom:14, fontFamily:"var(--font-display)" }}>New Medical Record</p>
           <Select label="Type" value={form.type} onChange={e=>setForm(p=>({...p,type:e.target.value}))} options={["note","injury","restriction"]} />
-          <div style={{ marginBottom:12 }}>
-            <label style={{ display:"block", fontSize:11, color:"var(--muted)", fontWeight:700, marginBottom:5, letterSpacing:"0.05em", textTransform:"uppercase" }}>Details</label>
-            <textarea value={form.text} onChange={e=>setForm(p=>({...p,text:e.target.value}))} rows={4}
-              style={{ width:"100%", border:"1.5px solid var(--line)", borderRadius:11, padding:"10px 14px", fontSize:14, outline:"none", fontFamily:"var(--font-body)", color:"var(--text)", resize:"vertical", boxSizing:"border-box" }}
-              onFocus={e=>e.target.style.borderColor="var(--royal)"} onBlur={e=>e.target.style.borderColor="var(--line)"} />
-          </div>
+          <Textarea label="Details" value={form.text} onChange={e=>setForm(p=>({...p,text:e.target.value}))} placeholder="Describe the note, injury, or restriction…" required rows={4} />
           <div style={{ display:"flex", gap:8 }}>
-            <Btn variant="primary" onClick={add} full>Save</Btn>
+            <Btn variant="primary" onClick={add} loading={saving} full>Save Record</Btn>
             <Btn variant="secondary" onClick={() => setAdding(false)} full>Cancel</Btn>
           </div>
         </Card>
       ) : (
-        <Btn variant="secondary" onClick={() => setAdding(true)} full style={{ marginTop:8, borderRadius:14 }}>+ Add Medical Record</Btn>
+        medical.length > 0 && <Btn variant="secondary" onClick={() => setAdding(true)} full style={{ marginTop:8, borderRadius:12 }}>+ Add Medical Record</Btn>
       )}
+
+      <ConfirmModal open={!!confirmDel} onClose={() => setConfirmDel(null)} onConfirm={deleteRec} title="Remove Record" message={`Remove this ${confirmDel?.type}? This cannot be undone.`} confirmLabel="Remove" />
     </div>
   );
 }
