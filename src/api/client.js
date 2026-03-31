@@ -84,3 +84,20 @@ export const templatesAPI = {
   createWorkout:  (body, token)          => post("/api/templates/workout", body, token),
   createNutrition:(body, token)          => post("/api/templates/nutrition", body, token),
 };
+
+// ─── Activity Feed ────────────────────────────────────────────────────────────
+export const activityAPI = {
+  coachFeed: (coachId, token) => get(`/api/workouts/coach/${coachId}/activity`, token),
+};
+
+// ─── Meal Logs (client custom daily logs) ─────────────────────────────────────
+// Stored in localStorage keyed by date — no backend needed for MVP
+export const mealLogAPI = {
+  getDay: (date) => {
+    try { return JSON.parse(localStorage.getItem(`meal_log_${date}`) || "{}"); }
+    catch { return {}; }
+  },
+  setDay: (date, data) => {
+    localStorage.setItem(`meal_log_${date}`, JSON.stringify(data));
+  },
+};

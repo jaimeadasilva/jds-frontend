@@ -2,7 +2,7 @@
  * WeightGraph — clean SVG sparkline showing weight history
  * No external deps — pure SVG
  */
-export function WeightGraph({ data = [], goal, height = 120 }) {
+export function WeightGraph({ data = [], goal, height = 120, unit = "kg" }) {
   if (!data || data.length < 2) {
     return (
       <div style={{ height, display:"flex", alignItems:"center", justifyContent:"center", color:"var(--muted2)", fontSize:13 }}>
@@ -69,7 +69,7 @@ export function WeightGraph({ data = [], goal, height = 120 }) {
 
       {/* Last value label */}
       <text x={points[points.length-1].x} y={points[points.length-1].y - 10} textAnchor="middle" fontSize={11} fontWeight="700" fill="#2563EB">
-        {weights[weights.length-1]} kg
+        {weights[weights.length-1]} {unit}
       </text>
 
       {/* X axis labels */}
