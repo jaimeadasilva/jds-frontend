@@ -633,6 +633,3 @@ export function ClientProfile() {
   );
 }
 
-// Need lbsToKg in this file
-function lbsToKg(lbs) { return lbs ? Math.round(lbs / 2.20462 * 10) / 10 : null; }
-function kgToLbs(kg)   { return kg  ? Math.round(kg  * 2.20462 * 10) / 10 : null; }
