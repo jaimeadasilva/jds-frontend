@@ -4,7 +4,8 @@ import { useAuth } from "../hooks/useAuth";
 import { useToast } from "../hooks/useToast";
 import { useHoldPress } from "../hooks/useHoldPress";
 import { clientsAPI } from "../api/client";
-import { Card, Avatar, Badge, ProgressBar, Spinner, TopBar, goalColor, goalIcon, bmi, bmiCat, ibw, Empty } from "../components/UI";
+import { Card, Avatar, Badge, ProgressBar, Spinner, TopBar, goalColor, goalIcon, bmi, bmiCat, Empty } from "../components/UI";
+import { kgToLbs, displayHeight, calcIBW, bmiCategory } from "../utils/units";
 import { ConfirmModal } from "../components/Modal";
 import BottomNav from "../components/BottomNav";
 
@@ -41,7 +42,7 @@ function ClientCard({ client, onNavigate, onDeleteRequest }) {
               <Badge label={client.goal} color={goalColor(client.goal)} icon={goalIcon(client.goal)} />
             </div>
             <div style={{ fontSize:12, color:"var(--muted)", marginTop:2 }}>
-              {client.age}y · {client.height_cm}cm · {client.weight_kg}kg
+              {client.age}y · {displayHeight(client.height_cm)} · {kgToLbs(client.weight_kg)} lbs
             </div>
             <div style={{ marginTop:7 }}>
               <div style={{ display:"flex", justifyContent:"space-between", marginBottom:3 }}>
@@ -63,7 +64,7 @@ function ClientCard({ client, onNavigate, onDeleteRequest }) {
         <div style={{ display:"flex", gap:8, marginTop:11, paddingTop:10, borderTop:"1px solid var(--line)", alignItems:"center", flexWrap:"wrap" }}>
           <span style={{ fontSize:11, color:cat.c, fontWeight:700 }}>BMI {b} · {cat.label}</span>
           <span style={{ color:"var(--line2)" }}>·</span>
-          <span style={{ fontSize:11, color:"var(--muted)" }}>IBW {ibw(client.height_cm)} kg</span>
+          <span style={{ fontSize:11, color:"var(--muted)" }}>IBW {kgToLbs(calcIBW(client.height_cm))} lbs</span>
           {client.medical?.length > 0 && (
             <><span style={{ color:"var(--line2)" }}>·</span>
             <span style={{ fontSize:11, color:"var(--rose)", fontWeight:600 }}>⚠️ Medical</span></>

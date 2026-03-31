@@ -8,9 +8,10 @@ import { clientsAPI, workoutsAPI, nutritionAPI, medicalAPI } from "../api/client
 import {
   Card, Avatar, Badge, Spinner, Btn, Input, Select, Textarea,
   MacroRing, ProgressBar, TopBar, SectionHeader, Empty, ErrorMsg, PillTabs,
-  goalColor, goalIcon, bmi, bmiCat, ibw
+  goalColor, goalIcon
 } from "../components/UI";
 import { Modal, ConfirmModal } from "../components/Modal";
+import { kgToLbs, displayHeight, calcIBW, calcBMI, bmiCategory } from "../utils/units";
 import BottomNav from "../components/BottomNav";
 
 const COACH_TABS = [
@@ -28,6 +29,7 @@ export default function ClientProfilePage() {
 
   const [client,    setClient]    = useState(null);
   const [weightHistory, setWeightHistory] = useState([]);
+  const [workoutLogs,   setWorkoutLogs]   = useState([]);
   const [workout,   setWorkout]   = useState(null);
   const [nutrition, setNutrition] = useState(null);
   const [medical,   setMedical]   = useState([]);
@@ -37,6 +39,8 @@ export default function ClientProfilePage() {
 
   const load = useCallback(async () => {
     const wh = await clientsAPI.weightHistory(id, token).catch(() => []);
+      const wl = await workoutsAPI.getLogs(id, token).catch(() => []);
+      setWorkoutLogs(Array.isArray(wl) ? wl : []);
     setWeightHistory(Array.isArray(wh) ? wh : []);
     try {
       const [c, w, n, m] = await Promise.all([
@@ -55,15 +59,12 @@ export default function ClientProfilePage() {
   if (loading) return <div className="page" style={{ display:"flex", alignItems:"center", justifyContent:"center" }}><Spinner /></div>;
   if (!client)  return <Empty icon="❓" title="Client not found" subtitle="This client may have been removed." action={() => navigate("/coach/clients")} actionLabel="Back to Clients" />;
 
-  const b   = bmi(client.weight_kg, client.height_cm);
-  const cat = bmiCat(+b);
-
   const TABS = [
     { id:"workout",   label:"💪 Workout" },
     { id:"nutrition", label:"🍎 Nutrition" },
-    { id:"equipment", label:"🔧 Equipment" },
-    { id:"medical",   label:"🏥 Medical" },
     { id:"progress",  label:"📈 Progress" },
+    { id:"medical",   label:"🏥 Medical" },
+    { id:"equipment", label:"🔧 Equipment" },
   ];
 
   return (
@@ -71,7 +72,6 @@ export default function ClientProfilePage() {
       {/* Hero */}
       <div style={{ background:"linear-gradient(145deg, #1E40AF 0%, var(--royal) 65%, #3B82F6 100%)", padding:"16px 20px 0", position:"relative", overflow:"hidden" }}>
         <div style={{ position:"absolute", width:220, height:220, borderRadius:"50%", background:"#fff", opacity:0.05, top:-70, right:-50, pointerEvents:"none" }} />
-        <div style={{ position:"absolute", inset:0, backgroundImage:"radial-gradient(rgba(255,255,255,0.07) 1px, transparent 1px)", backgroundSize:"22px 22px", pointerEvents:"none" }} />
 
         <div style={{ position:"relative", zIndex:1 }}>
           <button onClick={() => navigate("/coach/clients")}
@@ -99,24 +99,27 @@ export default function ClientProfilePage() {
           {/* Stats row */}
           <div style={{ display:"grid", gridTemplateColumns:"1fr 1fr 1fr 1fr", gap:8, marginBottom:20 }}>
             {[
-              { label:"Weight", value:`${client.weight_kg}kg` },
-              { label:"BMI",    value:b, sub:cat.label, color: cat.c === "var(--emerald)" ? "#4ADE80" : cat.c === "var(--amber)" ? "#FCD34D" : "#FCA5A5" },
-              { label:"IBW",    value:`${ibw(client.height_cm)}kg` },
-              { label:"Height", value:`${client.height_cm}cm` },
+              { label:"Weight", value:`${kgToLbs(client.weight_kg)}`, unit:"lbs" },
+              { label:"Height", value:displayHeight(client.height_cm), unit:"" },
+              { label:"BMI",    value:calcBMI(client.weight_kg, client.height_cm), sub:bmiCategory(calcBMI(client.weight_kg,client.height_cm)).label, color: bmiCategory(calcBMI(client.weight_kg,client.height_cm)).c === "var(--emerald)" ? "#4ADE80" : bmiCategory(calcBMI(client.weight_kg,client.height_cm)).c === "var(--amber)" ? "#FCD34D" : "#FCA5A5" },
+              { label:"IBW",    value:`${kgToLbs(calcIBW(client.height_cm))}`, unit:"lbs" },
             ].map(s => (
               <div key={s.label} style={{ background:"rgba(255,255,255,0.12)", borderRadius:11, padding:"10px 8px", textAlign:"center", border:"1px solid rgba(255,255,255,0.14)" }}>
                 <div style={{ fontSize:14, fontWeight:800, color: s.color || "#fff", fontFamily:"var(--font-display)" }}>{s.value}</div>
                 <div style={{ fontSize:9, color:"rgba(255,255,255,0.6)", fontWeight:600, marginTop:2, textTransform:"uppercase", letterSpacing:"0.04em" }}>{s.label}</div>
-                {s.sub && <div style={{ fontSize:9, fontWeight:700, color: s.color || "#4ADE80", marginTop:1 }}>{s.sub}</div>}
+                {s.unit && <div style={{ fontSize:9, color:"rgba(255,255,255,0.55)", marginTop:1 }}>{s.unit}</div>}{s.sub && <div style={{ fontSize:9, fontWeight:700, color: s.color || "#4ADE80", marginTop:1 }}>{s.sub}</div>}
               </div>
             ))}
           </div>
         </div>
 
         {/* Tab bar */}
-        <div style={{ display:"flex", borderTop:"1px solid rgba(255,255,255,0.14)", marginLeft:-20, marginRight:-20, paddingLeft:20, overflowX:"auto", position:"relative", zIndex:1 }}>
-          {TABS.map(t => (
-            <button key={t.id} onClick={() => setTab(t.id)}
+        <div style={{ position:"relative", zIndex:1, marginLeft:-20, marginRight:-20 }}>
+          {/* Fade indicator showing more tabs to the right */}
+          <div style={{ position:"absolute", right:0, top:0, bottom:0, width:40, background:"linear-gradient(to right, transparent, rgba(30,64,175,0.95))", pointerEvents:"none", zIndex:2 }} />
+          <div style={{ display:"flex", borderTop:"1px solid rgba(255,255,255,0.14)", paddingLeft:20, overflowX:"auto", scrollbarWidth:"none" }}>
+            {TABS.map(t => (
+              <button key={t.id} onClick={() => setTab(t.id)}
               style={{ background:"none", border:"none", cursor:"pointer", padding:"12px 14px 10px", fontWeight: tab===t.id ? 700 : 500, fontSize:13, color: tab===t.id ? "#fff" : "rgba(255,255,255,0.5)", borderBottom: tab===t.id ? "2.5px solid #fff" : "2.5px solid transparent", whiteSpace:"nowrap", fontFamily:"var(--font-body)", transition:"all 0.15s", flexShrink:0 }}>
               {t.label}
             </button>
@@ -129,7 +132,7 @@ export default function ClientProfilePage() {
         {tab==="nutrition" && <NutritionTab nutrition={nutrition} clientId={id} token={token} reload={load} toast={toast} />}
         {tab==="equipment" && <EquipmentTab clientId={id} token={token} equipment={client.equipment || []} reload={load} toast={toast} />}
         {tab==="medical"   && <MedicalTab   medical={medical}   clientId={id} token={token} reload={load} toast={toast} />}
-        {tab==="progress"  && <ProgressTab  weightHistory={weightHistory} client={client} clientId={id} token={token} reload={load} toast={toast} />}
+        {tab==="progress"  && <ProgressTab  weightHistory={weightHistory} workoutLogs={workoutLogs} client={client} clientId={id} token={token} reload={load} toast={toast} />}
       </div>
 
       {/* Edit Client Modal */}
@@ -499,19 +502,20 @@ function MedicalTab({ medical, clientId, token, reload, toast }) {
 }
 
 // ─── Progress Tab ─────────────────────────────────────────────────────────────
-function ProgressTab({ weightHistory, client, clientId, token, reload, toast }) {
+function ProgressTab({ weightHistory, workoutLogs, client, clientId, token, reload, toast }) {
   const [logWeight,  setLogWeight]  = useState("");
   const [logNote,    setLogNote]    = useState("");
   const [saving,     setSaving]     = useState(false);
 
   const submitWeight = async () => {
-    const kg = parseFloat(logWeight);
-    if (!kg || kg < 20 || kg > 400) { toast.error("Enter a valid weight (20–400 kg)"); return; }
+    const lbs = parseFloat(logWeight);
+    const kg = lbs ? Math.round(lbs / 2.20462 * 10) / 10 : null;
+    if (!kg || lbs < 50 || lbs > 900) { toast.error("Enter a valid weight in lbs"); return; }
     setSaving(true);
     try {
       await clientsAPI.logWeight(clientId, kg, token);
-      setLogWeight(""); setLogNote("");
-      toast.success(`Weight logged: ${kg} kg`);
+      setLogWeight("");
+      toast.success(`Weight logged: ${lbs} lbs`);
       reload();
     } catch { toast.error("Failed to log weight"); }
     finally { setSaving(false); }
@@ -531,14 +535,14 @@ function ProgressTab({ weightHistory, client, clientId, token, reload, toast }) 
             <div style={{ fontSize:11, color:"var(--muted)", fontWeight:700, letterSpacing:"0.06em", textTransform:"uppercase" }}>Weight History</div>
             {latest && (
               <div style={{ fontSize:26, fontWeight:800, color:"var(--text)", fontFamily:"var(--font-display)", letterSpacing:"-0.03em", marginTop:4 }}>
-                {latest.weight_kg} <span style={{ fontSize:14, fontWeight:500, color:"var(--muted)" }}>kg</span>
+                {kgToLbs(latest.weight_kg)} <span style={{ fontSize:14, fontWeight:500, color:"var(--muted)" }}>lbs</span>
               </div>
             )}
           </div>
           {change !== null && (
             <div style={{ textAlign:"right" }}>
               <div style={{ fontSize:15, fontWeight:800, color: +change < 0 ? "var(--emerald)" : +change > 0 ? "var(--rose)" : "var(--muted)", fontFamily:"var(--font-display)" }}>
-                {+change > 0 ? "+" : ""}{change} kg
+                {+change > 0 ? "+" : ""}{kgToLbs(Math.abs(+change))} lbs
               </div>
               <div style={{ fontSize:11, color:"var(--muted)", marginTop:2 }}>since start</div>
             </div>
@@ -551,7 +555,7 @@ function ProgressTab({ weightHistory, client, clientId, token, reload, toast }) 
       <Card style={{ marginBottom:16 }}>
         <p style={{ fontWeight:700, fontSize:14, color:"var(--text)", marginBottom:14, fontFamily:"var(--font-display)" }}>Log New Weight</p>
         <div style={{ display:"grid", gridTemplateColumns:"2fr 1fr", gap:10, alignItems:"flex-end" }}>
-          <Input label="Weight (kg)" value={logWeight} onChange={e=>setLogWeight(e.target.value)} type="number" placeholder="e.g. 73.5" />
+          <Input label="Weight (lbs)" value={logWeight} onChange={e=>setLogWeight(e.target.value)} type="number" placeholder="e.g. 162" />
           <Btn variant="primary" onClick={submitWeight} loading={saving} style={{ marginBottom:13, borderRadius:"var(--radius-sm)" }}>Log</Btn>
         </div>
       </Card>
@@ -564,7 +568,7 @@ function ProgressTab({ weightHistory, client, clientId, token, reload, toast }) 
             {[...sorted].reverse().slice(0,10).map((entry, i) => (
               <div key={i} style={{ display:"flex", justifyContent:"space-between", alignItems:"center", padding:"11px 14px", background:"var(--white)", borderRadius:"var(--radius-sm)", border:"1px solid var(--line)" }}>
                 <div>
-                  <div style={{ fontWeight:700, fontSize:14, color:"var(--text)", fontFamily:"var(--font-display)" }}>{entry.weight_kg} kg</div>
+                  <div style={{ fontWeight:700, fontSize:14, color:"var(--text)", fontFamily:"var(--font-display)" }}>{kgToLbs(entry.weight_kg)} lbs</div>
                   <div style={{ fontSize:11, color:"var(--muted)", marginTop:2 }}>
                     {new Date(entry.logged_at).toLocaleDateString("en-GB", { day:"numeric", month:"short", year:"numeric" })}
                   </div>
@@ -575,7 +579,7 @@ function ProgressTab({ weightHistory, client, clientId, token, reload, toast }) 
                   const diff = (entry.weight_kg - prev?.weight_kg).toFixed(1);
                   return (
                     <span style={{ fontSize:12, fontWeight:700, color: +diff < 0 ? "var(--emerald)" : +diff > 0 ? "var(--rose)" : "var(--muted)" }}>
-                      {+diff > 0 ? "+" : ""}{diff} kg
+                      {+diff > 0 ? "+" : (Math.abs(+diff) > 0 ? "-" : "")}{kgToLbs(Math.abs(+diff))} lbs
                     </span>
                   );
                 })()}

@@ -3,6 +3,7 @@ import { useNavigate } from "react-router-dom";
 import { useAuth } from "../hooks/useAuth";
 import { clientsAPI, activityAPI } from "../api/client";
 import { Card, Avatar, Badge, ProgressBar, Spinner, goalColor, goalIcon } from "../components/UI";
+import { Modal } from "../components/Modal";
 import BottomNav from "../components/BottomNav";
 
 const COACH_TABS = [
@@ -22,24 +23,26 @@ function timeAgo(dateStr) {
   const mins = Math.floor(diff / 60000);
   const hrs  = Math.floor(diff / 3600000);
   const days = Math.floor(diff / 86400000);
+  if (mins < 2)   return "Just now";
   if (mins < 60)  return `${mins}m ago`;
   if (hrs  < 24)  return `${hrs}h ago`;
   if (days < 7)   return `${days}d ago`;
-  return new Date(dateStr).toLocaleDateString("en-GB", { day:"numeric", month:"short" });
+  return new Date(dateStr).toLocaleDateString("en-US", { day:"numeric", month:"short" });
 }
 
 export default function CoachHome() {
   const { user, token, loading: authLoading } = useAuth();
   const navigate = useNavigate();
-  const [clients,  setClients]  = useState([]);
-  const [activity, setActivity] = useState([]);
-  const [loading,  setLoading]  = useState(true);
+  const [clients,     setClients]     = useState([]);
+  const [activity,    setActivity]    = useState([]);
+  const [loading,     setLoading]     = useState(true);
+  const [showAllActivity, setShowAllActivity] = useState(false);
 
   useEffect(() => {
     if (authLoading || !token || !user?.id) return;
     Promise.all([
       clientsAPI.list(token).then(d => setClients(Array.isArray(d) ? d : [])),
-      activityAPI.coachFeed(user.id, token).then(d => setActivity(Array.isArray(d) ? d : [])).catch(()=>{}),
+      activityAPI.coachFeed(user.id, token).then(d => setActivity(Array.isArray(d) ? d : [])).catch(() => {}),
     ]).finally(() => setLoading(false));
   }, [token, authLoading, user?.id]);
 
@@ -74,7 +77,7 @@ export default function CoachHome() {
               <div key={s.label} style={{ background:"rgba(255,255,255,0.11)", backdropFilter:"blur(8px)", border:"1px solid rgba(255,255,255,0.16)", borderRadius:14, padding:"12px 10px" }}>
                 <div style={{ fontSize:18, marginBottom:4 }}>{s.icon}</div>
                 <div style={{ fontSize:22, fontWeight:800, color:"#fff", fontFamily:"var(--font-display)" }}>{s.value}</div>
-                <div style={{ fontSize:10, color:"rgba(255,255,255,0.58)", fontWeight:600, marginTop:1, letterSpacing:"0.02em" }}>{s.label}</div>
+                <div style={{ fontSize:10, color:"rgba(255,255,255,0.58)", fontWeight:600, marginTop:1 }}>{s.label}</div>
               </div>
             ))}
           </div>
@@ -109,9 +112,9 @@ export default function CoachHome() {
             </button>
           </div>
         ) : (
-          <div className="stagger" style={{ display:"flex", flexDirection:"column", gap:10, marginBottom:28 }}>
+          <div style={{ display:"flex", flexDirection:"column", gap:10, marginBottom:28 }}>
             {clients.slice(0,3).map((c,i) => (
-              <Card key={c.id} onClick={() => navigate(`/coach/clients/${c.id}`)} className="fade-up" style={{ animationDelay:`${i*0.05}s` }}>
+              <Card key={c.id} onClick={() => navigate(`/coach/clients/${c.id}`)} style={{ animationDelay:`${i*0.05}s` }}>
                 <div style={{ display:"flex", alignItems:"center", gap:12 }}>
                   <Avatar initials={c.avatar_initials||c.full_name?.slice(0,2)||"?"} color={goalColor(c.goal)} />
                   <div style={{ flex:1, minWidth:0 }}>
@@ -126,32 +129,64 @@ export default function CoachHome() {
           </div>
         )}
 
-        {/* Real Activity Feed */}
-        <h3 style={{ margin:"0 0 12px", fontSize:15, fontWeight:700, color:"var(--text)", fontFamily:"var(--font-display)" }}>
-          Recent Activity {activity.length > 0 && <span style={{ fontSize:12, color:"var(--muted)", fontWeight:500 }}>· live</span>}
-        </h3>
+        {/* Activity Feed */}
+        <div style={{ display:"flex", justifyContent:"space-between", alignItems:"center", marginBottom:12 }}>
+          <h3 style={{ margin:0, fontSize:15, fontWeight:700, color:"var(--text)", fontFamily:"var(--font-display)" }}>
+            Recent Activity
+            {activity.length > 0 && <span style={{ fontSize:11, color:"var(--emerald)", fontWeight:600, marginLeft:8, background:"var(--emerald-pale)", borderRadius:99, padding:"2px 8px" }}>live</span>}
+          </h3>
+          {activity.length > 4 && (
+            <button onClick={() => setShowAllActivity(true)} style={{ background:"none", border:"none", cursor:"pointer", fontSize:13, color:"var(--royal)", fontWeight:600, fontFamily:"var(--font-body)" }}>
+              See all ({activity.length}) →
+            </button>
+          )}
+        </div>
+
         {activity.length === 0 ? (
           <div style={{ textAlign:"center", padding:"24px 0", color:"var(--muted2)", fontSize:13 }}>
-            No exercise completions yet today
+            No activity yet — completions will appear here in real time
           </div>
         ) : (
           <div style={{ display:"flex", flexDirection:"column", gap:8 }}>
-            {activity.slice(0,8).map((a,i) => (
-              <div key={a.id||i} style={{ display:"flex", gap:12, alignItems:"center", padding:"12px 14px", background:"var(--white)", borderRadius:"var(--radius)", border:"1px solid var(--line)", boxShadow:"var(--shadow-xs)" }}>
-                <div style={{ width:34, height:34, borderRadius:10, background:"var(--emerald)12", display:"flex", alignItems:"center", justifyContent:"center", fontSize:16, flexShrink:0 }}>✅</div>
-                <div style={{ flex:1, minWidth:0 }}>
-                  <div style={{ fontSize:13, color:"var(--text2)", fontWeight:500 }}>
-                    <strong>{a.client_name}</strong> completed <em>{a.exercise_name}</em>
-                  </div>
-                  <div style={{ fontSize:11, color:"var(--muted)", marginTop:2 }}>{a.day_label} · {timeAgo(a.logged_at)}</div>
-                </div>
-              </div>
+            {activity.slice(0,4).map((a,i) => (
+              <ActivityRow key={a.id||i} a={a} timeAgo={timeAgo} onClick={() => navigate(`/coach/clients/${a.client_id||""}`)} />
             ))}
           </div>
         )}
       </div>
 
+      {/* All Activity Modal */}
+      <Modal open={showAllActivity} onClose={() => setShowAllActivity(false)} title="All Activity">
+        <div style={{ display:"flex", flexDirection:"column", gap:8, maxHeight:"60vh", overflowY:"auto" }}>
+          {activity.length === 0 ? (
+            <p style={{ textAlign:"center", color:"var(--muted)", fontSize:13, padding:"20px 0" }}>No activity yet</p>
+          ) : (
+            activity.map((a,i) => (
+              <ActivityRow key={a.id||i} a={a} timeAgo={timeAgo} onClick={() => { setShowAllActivity(false); navigate(`/coach/clients/${a.client_id||""}`); }} />
+            ))
+          )}
+        </div>
+      </Modal>
+
       <BottomNav tabs={COACH_TABS} />
+    </div>
+  );
+}
+
+function ActivityRow({ a, timeAgo, onClick }) {
+  return (
+    <div onClick={onClick}
+      style={{ display:"flex", gap:12, alignItems:"center", padding:"12px 14px", background:"var(--white)", borderRadius:"var(--radius)", border:"1px solid var(--line)", boxShadow:"var(--shadow-xs)", cursor:"pointer", transition:"all 0.15s" }}
+      onMouseEnter={e => e.currentTarget.style.borderColor="var(--royal-pale2)"}
+      onMouseLeave={e => e.currentTarget.style.borderColor="var(--line)"}>
+      <div style={{ width:34, height:34, borderRadius:10, background:"var(--emerald)12", display:"flex", alignItems:"center", justifyContent:"center", fontSize:16, flexShrink:0 }}>✅</div>
+      <div style={{ flex:1, minWidth:0 }}>
+        <div style={{ fontSize:13, color:"var(--text2)", fontWeight:500 }}>
+          <strong>{a.client_name}</strong> completed <em>{a.exercise_name}</em>
+        </div>
+        <div style={{ fontSize:11, color:"var(--muted)", marginTop:2 }}>{a.day_label} · {timeAgo(a.logged_at)}</div>
+      </div>
+      <span style={{ color:"var(--muted2)", fontSize:16, flexShrink:0 }}>›</span>
     </div>
   );
 }
