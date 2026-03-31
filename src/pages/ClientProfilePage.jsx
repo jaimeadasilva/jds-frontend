@@ -1,3 +1,4 @@
+import { WeightGraph } from "../components/WeightGraph";
 import { useState, useEffect, useCallback } from "react";
 import { useParams, useNavigate } from "react-router-dom";
 import { useAuth } from "../hooks/useAuth";
@@ -25,6 +26,7 @@ export default function ClientProfilePage() {
   const navigate  = useNavigate();
 
   const [client,    setClient]    = useState(null);
+  const [weightHistory, setWeightHistory] = useState([]);
   const [workout,   setWorkout]   = useState(null);
   const [nutrition, setNutrition] = useState(null);
   const [medical,   setMedical]   = useState([]);
@@ -33,6 +35,8 @@ export default function ClientProfilePage() {
   const [editModal, setEditModal] = useState(false);
 
   const load = useCallback(async () => {
+    const wh = await clientsAPI.weightHistory(id, token).catch(() => []);
+    setWeightHistory(Array.isArray(wh) ? wh : []);
     try {
       const [c, w, n, m] = await Promise.all([
         clientsAPI.get(id, token),
@@ -58,6 +62,7 @@ export default function ClientProfilePage() {
     { id:"nutrition", label:"🍎 Nutrition" },
     { id:"equipment", label:"🔧 Equipment" },
     { id:"medical",   label:"🏥 Medical" },
+    { id:"progress",  label:"📈 Progress" },
   ];
 
   return (
@@ -123,6 +128,7 @@ export default function ClientProfilePage() {
         {tab==="nutrition" && <NutritionTab nutrition={nutrition} clientId={id} token={token} reload={load} toast={toast} />}
         {tab==="equipment" && <EquipmentTab clientId={id} token={token} equipment={client.equipment || []} reload={load} toast={toast} />}
         {tab==="medical"   && <MedicalTab   medical={medical}   clientId={id} token={token} reload={load} toast={toast} />}
+        {tab==="progress"  && <ProgressTab  weightHistory={weightHistory} client={client} clientId={id} token={token} reload={load} toast={toast} />}
       </div>
 
       {/* Edit Client Modal */}
@@ -677,6 +683,96 @@ function MedicalTab({ medical, clientId, token, reload, toast }) {
       )}
 
       <ConfirmModal open={!!confirmDel} onClose={() => setConfirmDel(null)} onConfirm={deleteRec} title="Remove Record" message={`Remove this ${confirmDel?.type}? This cannot be undone.`} confirmLabel="Remove" />
+    </div>
+  );
+}
+
+// ─── Progress Tab ─────────────────────────────────────────────────────────────
+function ProgressTab({ weightHistory, client, clientId, token, reload, toast }) {
+  const [logWeight,  setLogWeight]  = useState("");
+  const [logNote,    setLogNote]    = useState("");
+  const [saving,     setSaving]     = useState(false);
+
+  const submitWeight = async () => {
+    const kg = parseFloat(logWeight);
+    if (!kg || kg < 20 || kg > 400) { toast.error("Enter a valid weight (20–400 kg)"); return; }
+    setSaving(true);
+    try {
+      await clientsAPI.logWeight(clientId, kg, token);
+      setLogWeight(""); setLogNote("");
+      toast.success(`Weight logged: ${kg} kg`);
+      reload();
+    } catch { toast.error("Failed to log weight"); }
+    finally { setSaving(false); }
+  };
+
+  const sorted = [...weightHistory].sort((a,b) => new Date(a.logged_at) - new Date(b.logged_at));
+  const latest = sorted[sorted.length - 1];
+  const first  = sorted[0];
+  const change = latest && first && sorted.length > 1 ? (latest.weight_kg - first.weight_kg).toFixed(1) : null;
+
+  return (
+    <div>
+      {/* Weight graph */}
+      <Card style={{ marginBottom:16 }}>
+        <div style={{ display:"flex", justifyContent:"space-between", alignItems:"flex-start", marginBottom:14 }}>
+          <div>
+            <div style={{ fontSize:11, color:"var(--muted)", fontWeight:700, letterSpacing:"0.06em", textTransform:"uppercase" }}>Weight History</div>
+            {latest && (
+              <div style={{ fontSize:26, fontWeight:800, color:"var(--text)", fontFamily:"var(--font-display)", letterSpacing:"-0.03em", marginTop:4 }}>
+                {latest.weight_kg} <span style={{ fontSize:14, fontWeight:500, color:"var(--muted)" }}>kg</span>
+              </div>
+            )}
+          </div>
+          {change !== null && (
+            <div style={{ textAlign:"right" }}>
+              <div style={{ fontSize:15, fontWeight:800, color: +change < 0 ? "var(--emerald)" : +change > 0 ? "var(--rose)" : "var(--muted)", fontFamily:"var(--font-display)" }}>
+                {+change > 0 ? "+" : ""}{change} kg
+              </div>
+              <div style={{ fontSize:11, color:"var(--muted)", marginTop:2 }}>since start</div>
+            </div>
+          )}
+        </div>
+        <WeightGraph data={sorted} />
+      </Card>
+
+      {/* Log weight */}
+      <Card style={{ marginBottom:16 }}>
+        <p style={{ fontWeight:700, fontSize:14, color:"var(--text)", marginBottom:14, fontFamily:"var(--font-display)" }}>Log New Weight</p>
+        <div style={{ display:"grid", gridTemplateColumns:"2fr 1fr", gap:10, alignItems:"flex-end" }}>
+          <Input label="Weight (kg)" value={logWeight} onChange={e=>setLogWeight(e.target.value)} type="number" placeholder="e.g. 73.5" />
+          <Btn variant="primary" onClick={submitWeight} loading={saving} style={{ marginBottom:13, borderRadius:"var(--radius-sm)" }}>Log</Btn>
+        </div>
+      </Card>
+
+      {/* History list */}
+      {sorted.length > 0 && (
+        <>
+          <SectionHeader title="Weight Log" />
+          <div style={{ display:"flex", flexDirection:"column", gap:8 }}>
+            {[...sorted].reverse().slice(0,10).map((entry, i) => (
+              <div key={i} style={{ display:"flex", justifyContent:"space-between", alignItems:"center", padding:"11px 14px", background:"var(--white)", borderRadius:"var(--radius-sm)", border:"1px solid var(--line)" }}>
+                <div>
+                  <div style={{ fontWeight:700, fontSize:14, color:"var(--text)", fontFamily:"var(--font-display)" }}>{entry.weight_kg} kg</div>
+                  <div style={{ fontSize:11, color:"var(--muted)", marginTop:2 }}>
+                    {new Date(entry.logged_at).toLocaleDateString("en-GB", { day:"numeric", month:"short", year:"numeric" })}
+                  </div>
+                </div>
+                {i > 0 && sorted.length > 1 && (() => {
+                  const prev = [...sorted].reverse()[i+1];
+                  if (!prev) return null;
+                  const diff = (entry.weight_kg - prev?.weight_kg).toFixed(1);
+                  return (
+                    <span style={{ fontSize:12, fontWeight:700, color: +diff < 0 ? "var(--emerald)" : +diff > 0 ? "var(--rose)" : "var(--muted)" }}>
+                      {+diff > 0 ? "+" : ""}{diff} kg
+                    </span>
+                  );
+                })()}
+              </div>
+            ))}
+          </div>
+        </>
+      )}
     </div>
   );
 }

@@ -2,6 +2,7 @@ import { useState, useEffect, useCallback } from "react";
 import { useNavigate } from "react-router-dom";
 import { useAuth } from "../hooks/useAuth";
 import { useToast } from "../hooks/useToast";
+import { useHoldPress } from "../hooks/useHoldPress";
 import { clientsAPI } from "../api/client";
 import { Card, Avatar, Badge, ProgressBar, Spinner, TopBar, goalColor, goalIcon, bmi, bmiCat, ibw, Empty } from "../components/UI";
 import { ConfirmModal } from "../components/Modal";
@@ -14,15 +15,78 @@ const COACH_TABS = [
   { id:"profile", label:"Profile", icon:"👤", path:"/coach/profile" },
 ];
 
+// ─── Client card with hold-to-delete ─────────────────────────────────────────
+function ClientCard({ client, onNavigate, onDeleteRequest }) {
+  const { progress, handlers } = useHoldPress(() => onDeleteRequest(client), 700);
+  const b   = bmi(client.weight_kg, client.height_cm);
+  const cat = bmiCat(+b);
+  const isHolding = progress > 0;
+
+  return (
+    <div style={{ position:"relative" }}>
+      <Card onClick={() => !isHolding && onNavigate(client.id)}
+        style={{ transition:"all 0.2s", transform: isHolding ? "scale(0.985)" : "scale(1)", overflow:"hidden" }}>
+        {/* Hold progress ring at top */}
+        {progress > 0 && (
+          <div style={{ position:"absolute", top:0, left:0, right:0, height:3, background:"var(--line)", zIndex:10, borderRadius:"var(--radius) var(--radius) 0 0", overflow:"hidden" }}>
+            <div style={{ width:`${progress}%`, height:"100%", background:"var(--rose)", transition:"width 0.05s linear", borderRadius:"inherit" }} />
+          </div>
+        )}
+
+        <div style={{ display:"flex", alignItems:"center", gap:13 }}>
+          <Avatar initials={client.avatar_initials || client.full_name?.slice(0,2)} size={48} color={goalColor(client.goal)} />
+          <div style={{ flex:1, minWidth:0 }}>
+            <div style={{ display:"flex", alignItems:"center", gap:8, flexWrap:"wrap" }}>
+              <span style={{ fontWeight:700, fontSize:15, color:"var(--text)", fontFamily:"var(--font-display)", letterSpacing:"-0.01em" }}>{client.full_name}</span>
+              <Badge label={client.goal} color={goalColor(client.goal)} icon={goalIcon(client.goal)} />
+            </div>
+            <div style={{ fontSize:12, color:"var(--muted)", marginTop:2 }}>
+              {client.age}y · {client.height_cm}cm · {client.weight_kg}kg
+            </div>
+            <div style={{ marginTop:7 }}>
+              <div style={{ display:"flex", justifyContent:"space-between", marginBottom:3 }}>
+                <span style={{ fontSize:10, color:"var(--muted)", fontWeight:600, letterSpacing:"0.04em" }}>PROGRESS</span>
+                <span style={{ fontSize:10, fontWeight:700, color:goalColor(client.goal) }}>{client.progress_pct}%</span>
+              </div>
+              <ProgressBar value={client.progress_pct} color={goalColor(client.goal)} height={4} />
+            </div>
+          </div>
+
+          {/* Hold-to-delete button */}
+          <div {...handlers}
+            style={{ width:36, height:36, borderRadius:10, background: isHolding ? "var(--rose-pale)" : "var(--bg2)", border:`1px solid ${isHolding ? "#FECDD3" : "var(--line)"}`, display:"flex", alignItems:"center", justifyContent:"center", flexShrink:0, cursor:"pointer", transition:"all 0.15s", userSelect:"none", WebkitUserSelect:"none" }}
+            title="Hold to delete">
+            <span style={{ fontSize:15, transition:"all 0.15s", filter: isHolding ? "none" : "grayscale(0.3) opacity(0.5)" }}>🗑</span>
+          </div>
+        </div>
+
+        <div style={{ display:"flex", gap:8, marginTop:11, paddingTop:10, borderTop:"1px solid var(--line)", alignItems:"center" }}>
+          <span style={{ fontSize:11, color:cat.c, fontWeight:700 }}>BMI {b} · {cat.label}</span>
+          <span style={{ color:"var(--line2)" }}>·</span>
+          <span style={{ fontSize:11, color:"var(--muted)" }}>IBW {ibw(client.height_cm)} kg</span>
+          {client.medical?.length > 0 && <><span style={{ color:"var(--line2)" }}>·</span><span style={{ fontSize:11, color:"var(--rose)", fontWeight:600 }}>⚠️ Medical</span></>}
+        </div>
+
+        {/* Hold hint label */}
+        {isHolding && (
+          <div style={{ position:"absolute", top:"50%", left:"50%", transform:"translate(-50%, -50%)", background:"rgba(239,68,68,0.9)", color:"#fff", borderRadius:10, padding:"6px 14px", fontSize:12, fontWeight:700, whiteSpace:"nowrap", pointerEvents:"none", backdropFilter:"blur(4px)" }}>
+            Hold to delete…
+          </div>
+        )}
+      </Card>
+    </div>
+  );
+}
+
 export default function ClientsListPage() {
   const { token } = useAuth();
   const { toast } = useToast();
   const navigate  = useNavigate();
-  const [clients,  setClients]  = useState([]);
-  const [loading,  setLoading]  = useState(true);
-  const [search,   setSearch]   = useState("");
-  const [filter,   setFilter]   = useState("All");
-  const [deleting, setDeleting] = useState(null); // client to delete
+  const [clients,    setClients]    = useState([]);
+  const [loading,    setLoading]    = useState(true);
+  const [search,     setSearch]     = useState("");
+  const [filter,     setFilter]     = useState("All");
+  const [deleting,   setDeleting]   = useState(null);
   const [delLoading, setDelLoading] = useState(false);
 
   const load = useCallback(() => {
@@ -41,14 +105,14 @@ export default function ClientsListPage() {
     if (!deleting) return;
     setDelLoading(true);
     try {
-      await clientsAPI.delete?.(deleting.id, token) || 
-        fetch(`https://jds-backend-production.up.railway.app/api/clients/${deleting.id}`, { method:"DELETE", headers:{ Authorization:`Bearer ${token}` } });
+      await fetch(`https://jds-backend-production.up.railway.app/api/clients/${deleting.id}`, {
+        method: "DELETE", headers: { Authorization:`Bearer ${token}` }
+      });
       setClients(p => p.filter(c => c.id !== deleting.id));
       toast.success(`${deleting.full_name} removed`);
       setDeleting(null);
-    } catch {
-      toast.error("Could not delete client");
-    } finally { setDelLoading(false); }
+    } catch { toast.error("Could not delete client"); }
+    finally { setDelLoading(false); }
   };
 
   return (
@@ -67,71 +131,35 @@ export default function ClientsListPage() {
         <div style={{ position:"relative", marginBottom:12 }}>
           <span style={{ position:"absolute", left:11, top:"50%", transform:"translateY(-50%)", fontSize:14, color:"var(--muted2)" }}>🔍</span>
           <input value={search} onChange={e => setSearch(e.target.value)} placeholder="Search clients…"
-            style={{ width:"100%", border:"1.5px solid var(--line)", borderRadius:"var(--radius-sm)", padding:"10px 14px 10px 34px", fontSize:14, outline:"none", fontFamily:"var(--font-body)", color:"var(--text)", background:"var(--white)", boxSizing:"border-box", transition:"all 0.15s" }}
+            style={{ width:"100%", border:"1.5px solid var(--line)", borderRadius:"var(--radius-sm)", padding:"10px 14px 10px 34px", fontSize:14, outline:"none", fontFamily:"var(--font-body)", color:"var(--text)", background:"var(--white)", boxSizing:"border-box" }}
             onFocus={e => { e.target.style.borderColor="var(--royal)"; e.target.style.boxShadow="0 0 0 3px var(--royal-glow)"; }}
             onBlur={e => { e.target.style.borderColor="var(--line)"; e.target.style.boxShadow="none"; }} />
         </div>
 
         {/* Filter pills */}
-        <div style={{ display:"flex", gap:7, marginBottom:20, overflowX:"auto", paddingBottom:2 }}>
+        <div style={{ display:"flex", gap:7, marginBottom:16, overflowX:"auto", paddingBottom:2 }}>
           {["All","Fat Loss","Muscle Gain","Maintenance"].map(f => (
             <button key={f} onClick={() => setFilter(f)}
-              style={{ borderRadius:99, border:`1.5px solid ${filter===f ? "var(--royal)" : "var(--line)"}`, background: filter===f ? "var(--royal)" : "var(--white)", color: filter===f ? "#fff" : "var(--muted)", padding:"6px 14px", fontSize:12, fontWeight: filter===f ? 700 : 500, cursor:"pointer", whiteSpace:"nowrap", fontFamily:"var(--font-body)", transition:"all 0.15s", flexShrink:0 }}>
+              style={{ borderRadius:99, border:`1.5px solid ${filter===f?"var(--royal)":"var(--line)"}`, background:filter===f?"var(--royal)":"var(--white)", color:filter===f?"#fff":"var(--muted)", padding:"6px 14px", fontSize:12, fontWeight:filter===f?700:500, cursor:"pointer", whiteSpace:"nowrap", fontFamily:"var(--font-body)", transition:"all 0.15s", flexShrink:0 }}>
               {f}
             </button>
           ))}
         </div>
 
-        {/* Count */}
-        {!loading && (
-          <p style={{ fontSize:12, color:"var(--muted)", marginBottom:14, fontWeight:500 }}>
-            {filtered.length} {filtered.length === 1 ? "client" : "clients"}
-            {filter !== "All" && ` · ${filter}`}
+        {/* Hint */}
+        {!loading && filtered.length > 0 && (
+          <p style={{ fontSize:11, color:"var(--muted2)", marginBottom:12, textAlign:"center" }}>
+            💡 Hold the 🗑 button to delete a client
           </p>
         )}
 
         {loading ? <Spinner /> : filtered.length === 0 ? (
-          <Empty icon="👥" title="No clients yet" subtitle="Add your first client to get started." action={() => navigate("/coach/clients/new")} actionLabel="+ Add Client" />
+          <Empty icon="👥" title="No clients found" subtitle={search ? "Try a different search." : "Add your first client to get started."} action={!search ? () => navigate("/coach/clients/new") : undefined} actionLabel="+ Add Client" />
         ) : (
           <div className="stagger" style={{ display:"flex", flexDirection:"column", gap:11 }}>
-            {filtered.map((c, i) => {
-              const b   = bmi(c.weight_kg, c.height_cm);
-              const cat = bmiCat(+b);
-              return (
-                <Card key={c.id} onClick={() => navigate(`/coach/clients/${c.id}`)} className="fade-up" style={{ animationDelay:`${i*0.04}s` }}>
-                  <div style={{ display:"flex", alignItems:"center", gap:13 }}>
-                    <Avatar initials={c.avatar_initials || c.full_name?.slice(0,2)} size={48} color={goalColor(c.goal)} />
-                    <div style={{ flex:1, minWidth:0 }}>
-                      <div style={{ display:"flex", alignItems:"center", gap:8, flexWrap:"wrap" }}>
-                        <span style={{ fontWeight:700, fontSize:15, color:"var(--text)", fontFamily:"var(--font-display)", letterSpacing:"-0.01em" }}>{c.full_name}</span>
-                        <Badge label={c.goal} color={goalColor(c.goal)} icon={goalIcon(c.goal)} />
-                      </div>
-                      <div style={{ fontSize:12, color:"var(--muted)", marginTop:2 }}>
-                        {c.age}y · {c.height_cm}cm · {c.weight_kg}kg
-                      </div>
-                      <div style={{ marginTop:7 }}>
-                        <div style={{ display:"flex", justifyContent:"space-between", marginBottom:3 }}>
-                          <span style={{ fontSize:10, color:"var(--muted)", fontWeight:600, letterSpacing:"0.04em" }}>PROGRESS</span>
-                          <span style={{ fontSize:10, fontWeight:700, color:goalColor(c.goal) }}>{c.progress_pct}%</span>
-                        </div>
-                        <ProgressBar value={c.progress_pct} color={goalColor(c.goal)} height={4} />
-                      </div>
-                    </div>
-                    {/* Quick delete */}
-                    <button onClick={e => { e.stopPropagation(); setDeleting(c); }}
-                      style={{ background:"none", border:"none", cursor:"pointer", fontSize:16, color:"var(--muted2)", padding:"4px", borderRadius:6, flexShrink:0, transition:"color 0.15s" }}
-                      onMouseEnter={e => e.target.style.color="var(--rose)"}
-                      onMouseLeave={e => e.target.style.color="var(--muted2)"}>🗑</button>
-                  </div>
-                  <div style={{ display:"flex", gap:8, marginTop:11, paddingTop:10, borderTop:"1px solid var(--line)", alignItems:"center" }}>
-                    <span style={{ fontSize:11, color:cat.c, fontWeight:700 }}>BMI {b} · {cat.label}</span>
-                    <span style={{ color:"var(--line2)" }}>·</span>
-                    <span style={{ fontSize:11, color:"var(--muted)" }}>IBW {ibw(c.height_cm)} kg</span>
-                    {c.medical?.length > 0 && <><span style={{ color:"var(--line2)" }}>·</span><span style={{ fontSize:11, color:"var(--rose)", fontWeight:600 }}>⚠️ Medical</span></>}
-                  </div>
-                </Card>
-              );
-            })}
+            {filtered.map((c, i) => (
+              <ClientCard key={c.id} client={c} onNavigate={(id) => navigate(`/coach/clients/${id}`)} onDeleteRequest={setDeleting} />
+            ))}
           </div>
         )}
       </div>
@@ -142,7 +170,7 @@ export default function ClientsListPage() {
         onConfirm={handleDelete}
         loading={delLoading}
         title="Remove Client"
-        message={`Are you sure you want to remove ${deleting?.full_name}? This will permanently delete all their data.`}
+        message={`Are you sure you want to permanently remove ${deleting?.full_name}? All their data, workouts, and nutrition plans will be deleted. This cannot be undone.`}
         confirmLabel="Remove Client"
       />
 

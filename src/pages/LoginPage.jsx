@@ -27,53 +27,61 @@ export default function LoginPage() {
       minHeight: "100vh",
       display: "flex",
       flexDirection: "column",
-      background: "linear-gradient(160deg, #EFF6FF 0%, #F8FAFC 50%, #F0FDF4 100%)",
+      background: "linear-gradient(160deg, #EFF6FF 0%, #F8FAFC 60%, #F0FDF4 100%)",
       padding: "0 24px",
+      position: "relative",
+      overflow: "hidden",
     }}>
-      {/* Top decoration */}
-      <div style={{ position: "fixed", top: -80, right: -60, width: 280, height: 280, borderRadius: "50%", background: "var(--royal)", opacity: 0.06, pointerEvents: "none" }} />
-      <div style={{ position: "fixed", top: 60, left: -80, width: 200, height: 200, borderRadius: "50%", background: "var(--royal)", opacity: 0.04, pointerEvents: "none" }} />
+      {/* Soft background blobs — no hard edges */}
+      <div style={{ position:"fixed", width:400, height:400, borderRadius:"50%", background:"radial-gradient(circle, #DBEAFE 0%, transparent 70%)", top:-100, right:-100, pointerEvents:"none", zIndex:0 }} />
+      <div style={{ position:"fixed", width:300, height:300, borderRadius:"50%", background:"radial-gradient(circle, #D1FAE5 0%, transparent 70%)", bottom:-80, left:-80, pointerEvents:"none", zIndex:0 }} />
 
-      <div style={{ flex: 1, display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center", maxWidth: 380, margin: "0 auto", width: "100%" }}>
-        {/* Logo mark */}
-        <div className="fade-up" style={{ marginBottom: 40, textAlign: "center" }}>
+      <div style={{ flex:1, display:"flex", flexDirection:"column", alignItems:"center", justifyContent:"center", maxWidth:380, margin:"0 auto", width:"100%", position:"relative", zIndex:1 }}>
+        {/* Logo — white icon on solid blue, crisp */}
+        <div className="fade-up" style={{ marginBottom:40, textAlign:"center" }}>
           <div style={{
-            width: 68, height: 68, borderRadius: 20,
-            background: "linear-gradient(145deg, var(--royal), var(--royal-deep))",
-            display: "flex", alignItems: "center", justifyContent: "center",
-            fontSize: 30, margin: "0 auto 18px",
-            boxShadow: "var(--shadow-blue)",
-          }}>⚕️</div>
-          <h1 style={{ fontSize: 26, fontWeight: 800, color: "var(--text)", letterSpacing: "-0.04em", margin: "0 0 4px", fontFamily: "var(--font-display)" }}>JDS Clinic</h1>
-          <p style={{ color: "var(--muted)", fontSize: 14, fontWeight: 400 }}>Fitness & Wellness Platform</p>
+            width:72, height:72, borderRadius:22,
+            background:"linear-gradient(145deg, #1E40AF, #2563EB)",
+            display:"flex", alignItems:"center", justifyContent:"center",
+            fontSize:34, margin:"0 auto 18px",
+            boxShadow:"0 12px 32px rgba(37,99,235,0.30)",
+          }}>
+            {/* White medical cross — pure white on blue */}
+            <svg width="36" height="36" viewBox="0 0 36 36" fill="none">
+              <rect x="15" y="6" width="6" height="24" rx="2" fill="white" />
+              <rect x="6" y="15" width="24" height="6" rx="2" fill="white" />
+            </svg>
+          </div>
+          <h1 style={{ fontSize:26, fontWeight:800, color:"var(--text)", letterSpacing:"-0.04em", margin:"0 0 4px", fontFamily:"var(--font-display)" }}>JDS Clinic</h1>
+          <p style={{ color:"var(--muted)", fontSize:14, fontWeight:400 }}>Fitness & Wellness Platform</p>
         </div>
 
-        {/* Card */}
+        {/* Login card */}
         <div className="scale-in" style={{
-          width: "100%",
-          background: "var(--white)",
-          borderRadius: "var(--radius-lg)",
-          padding: "28px 26px",
-          boxShadow: "var(--shadow-lg)",
-          border: "1px solid var(--line)",
+          width:"100%",
+          background:"rgba(255,255,255,0.85)",
+          backdropFilter:"blur(24px)",
+          WebkitBackdropFilter:"blur(24px)",
+          borderRadius:"var(--radius-xl)",
+          padding:"28px 26px",
+          boxShadow:"0 8px 40px rgba(15,23,42,0.10), 0 1px 3px rgba(15,23,42,0.06)",
+          border:"1px solid rgba(255,255,255,0.7)",
         }}>
-          <h2 style={{ fontSize: 19, fontWeight: 700, color: "var(--text)", marginBottom: 22, fontFamily: "var(--font-display)", letterSpacing: "-0.02em" }}>Welcome back</h2>
-
+          <h2 style={{ fontSize:19, fontWeight:700, color:"var(--text)", marginBottom:22, fontFamily:"var(--font-display)", letterSpacing:"-0.02em" }}>Welcome back</h2>
           <ErrorMsg msg={error} />
-
           <form onSubmit={submit}>
             <Input label="Email" value={email} onChange={e => setEmail(e.target.value)} type="email" placeholder="your@email.com" required />
             <Input label="Password" value={password} onChange={e => setPassword(e.target.value)} type="password" placeholder="••••••••" required />
-            <Btn type="submit" full disabled={loading} size="lg" style={{ marginTop: 6, borderRadius: 12 }}>
+            <Btn type="submit" full disabled={loading} size="lg" style={{ marginTop:6, borderRadius:12 }}>
               {loading ? "Signing in…" : "Sign In →"}
             </Btn>
           </form>
         </div>
 
-        {/* Demo credentials */}
-        <div style={{ marginTop: 20, textAlign: "center", padding: "14px 18px", background: "rgba(37,99,235,0.05)", borderRadius: 12, border: "1px solid var(--royal-pale2)", width: "100%" }}>
-          <p style={{ fontSize: 11, color: "var(--muted)", fontWeight: 600, letterSpacing: "0.04em", textTransform: "uppercase", marginBottom: 6 }}>Demo Accounts</p>
-          <p style={{ fontSize: 12, color: "var(--text2)", lineHeight: 1.8 }}>
+        {/* Demo hint */}
+        <div style={{ marginTop:18, textAlign:"center", padding:"12px 16px", background:"rgba(37,99,235,0.06)", borderRadius:12, border:"1px solid rgba(37,99,235,0.12)", width:"100%" }}>
+          <p style={{ fontSize:11, color:"var(--muted)", fontWeight:600, letterSpacing:"0.04em", textTransform:"uppercase", marginBottom:5 }}>Demo</p>
+          <p style={{ fontSize:12, color:"var(--text2)", lineHeight:1.8 }}>
             Coach: coach@jdsclinic.com · <strong>Coach123!</strong><br />
             Client: sarah@example.com · <strong>Client123!</strong>
           </p>
