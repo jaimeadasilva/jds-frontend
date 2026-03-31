@@ -90,6 +90,7 @@ export default function ClientsListPage() {
   const [delLoading, setDelLoading] = useState(false);
 
   const load = useCallback(() => {
+    if (!token) { setLoading(false); return; }
     clientsAPI.list(token).then(setClients).finally(() => setLoading(false));
   }, [token]);
 
