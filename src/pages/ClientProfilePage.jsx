@@ -126,6 +126,7 @@ export default function ClientProfilePage() {
           ))}
         </div>
       </div>
+      </div>
 
       <div style={{ padding:"20px" }}>
         {tab==="workout"   && <CoachWorkoutTab workout={workout} clientId={id} token={token} reload={load} toast={toast} />}
