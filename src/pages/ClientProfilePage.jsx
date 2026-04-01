@@ -4,7 +4,7 @@ import { useState, useEffect, useCallback } from "react";
 import { useParams, useNavigate } from "react-router-dom";
 import { useAuth } from "../hooks/useAuth";
 import { useToast } from "../hooks/useToast";
-import { clientsAPI, workoutsAPI, nutritionAPI, medicalAPI } from "../api/client";
+import { clientsAPI, workoutsAPI, nutritionAPI, medicalAPI, mealLogAPI } from "../api/client";
 import {
   Card, Avatar, Badge, Spinner, Btn, Input, Select, Textarea,
   MacroRing, ProgressBar, TopBar, SectionHeader, Empty, ErrorMsg, PillTabs,
@@ -190,6 +190,8 @@ function NutritionTab({ nutrition, clientId, token, reload, toast }) {
   const [editTargets, setEditTargets] = useState(false);
   const [targets, setTargets] = useState({ calories:nutrition?.calories||2000, proteinG:nutrition?.protein_g||150, carbsG:nutrition?.carbs_g||200, fatsG:nutrition?.fats_g||65 });
   const [addingMeal, setAddingMeal] = useState(false);
+  const [mealLogs,    setMealLogs]    = useState([]);
+  const todayDate = new Date().toISOString().slice(0,10);
   const [editMeal,   setEditMeal]   = useState(null);
   const [newMeal, setNewMeal] = useState({ name:"", icon:"🍽️", foods:"", calories:"", proteinG:"", carbsG:"", fatsG:"" });
   const [saving, setSaving] = useState(false);
@@ -198,12 +200,16 @@ function NutritionTab({ nutrition, clientId, token, reload, toast }) {
   useEffect(() => {
     if (nutrition) setTargets({ calories:nutrition.calories, proteinG:nutrition.protein_g, carbsG:nutrition.carbs_g, fatsG:nutrition.fats_g });
   }, [nutrition]);
+  useEffect(() => {
+    if (clientId && token) mealLogAPI.getDay(clientId, todayDate, token).then(d => setMealLogs(Array.isArray(d)?d:[])).catch(()=>{});
+  }, [clientId, token, todayDate]);
 
   const saveTargets = async () => {
     setSaving(true);
     try {
-      if (nutrition) await nutritionAPI.updatePlan(nutrition.id, targets, token);
-      else await nutritionAPI.createPlan(clientId, targets, token);
+      const numTargets = { calories:+targets.calories, proteinG:+targets.proteinG, carbsG:+targets.carbsG, fatsG:+targets.fatsG };
+      if (nutrition) await nutritionAPI.updatePlan(nutrition.id, numTargets, token);
+      else await nutritionAPI.createPlan(clientId, numTargets, token);
       setEditTargets(false); toast.success("Targets saved"); reload();
     } catch { toast.error("Failed to save"); }
     finally { setSaving(false); }
@@ -215,7 +221,7 @@ function NutritionTab({ nutrition, clientId, token, reload, toast }) {
     try {
       let planId = nutrition?.id;
       if (!planId) { const p = await nutritionAPI.createPlan(clientId, targets, token); planId = p.id; }
-      await nutritionAPI.addMeal(planId, newMeal, token);
+      await nutritionAPI.addMeal(planId, { ...newMeal, calories:+newMeal.calories||0, proteinG:+newMeal.proteinG||0, carbsG:+newMeal.carbsG||0, fatsG:+newMeal.fatsG||0 }, token);
       setAddingMeal(false); setNewMeal({ name:"", icon:"🍽️", foods:"", calories:"", proteinG:"", carbsG:"", fatsG:"" });
       toast.success("Meal added"); reload();
     } catch { toast.error("Failed to add meal"); }
@@ -319,6 +325,23 @@ function NutritionTab({ nutrition, clientId, token, reload, toast }) {
           </div>
         </Card>
       ))}
+
+      {/* Client's logged meals today */}
+      {mealLogs.length > 0 && (
+        <div style={{ marginBottom:16 }}>
+          <div style={{ fontSize:12, fontWeight:700, color:"var(--text2)", marginBottom:10, display:"flex", alignItems:"center", gap:8 }}>
+            <span style={{ background:"var(--emerald)14", color:"var(--emerald)", borderRadius:99, padding:"2px 10px", fontSize:11, fontWeight:700 }}>Client logged today</span>
+          </div>
+          {mealLogs.map(log => (
+            <div key={log.id} style={{ display:"flex", justifyContent:"space-between", alignItems:"center", padding:"10px 14px", background:"var(--emerald)06", borderRadius:"var(--radius-sm)", border:"1px solid var(--emerald)20", marginBottom:8 }}>
+              <div>
+                <div style={{ fontWeight:600, fontSize:13, color:"var(--text)" }}>{log.is_custom ? "✏️ " : "✅ "}{log.name}</div>
+                <div style={{ fontSize:11, color:"var(--muted)", marginTop:2 }}>{log.calories} kcal · P {log.protein_g}g · C {log.carbs_g}g · F {log.fats_g}g</div>
+              </div>
+            </div>
+          ))}
+        </div>
+      )}
 
       {addingMeal ? (
         <Card style={{ marginTop:8 }}>
