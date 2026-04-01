@@ -79,10 +79,22 @@ export const medicalAPI = {
 
 // ─── Templates ────────────────────────────────────────────────────────────────
 export const templatesAPI = {
-  workoutList:    (token)                => get("/api/templates/workout", token),
-  nutritionList:  (token)                => get("/api/templates/nutrition", token),
-  createWorkout:  (body, token)          => post("/api/templates/workout", body, token),
-  createNutrition:(body, token)          => post("/api/templates/nutrition", body, token),
+  // Workout templates
+  workoutList:      (token)            => get("/api/templates/workout", token),
+  workoutGet:       (id, token)        => get(`/api/templates/workout/${id}`, token),
+  createWorkout:    (body, token)      => post("/api/templates/workout", body, token),
+  updateWorkout:    (id, body, token)  => patch(`/api/templates/workout/${id}`, body, token),
+  deleteWorkout:    (id, token)        => del(`/api/templates/workout/${id}`, token),
+  // Template exercises
+  addExercise:      (tId, body, token) => post(`/api/templates/workout/${tId}/exercises`, body, token),
+  updateExercise:   (tId, exId, body, token) => patch(`/api/templates/workout/${tId}/exercises/${exId}`, body, token),
+  deleteExercise:   (tId, exId, token) => del(`/api/templates/workout/${tId}/exercises/${exId}`, token),
+  // Nutrition templates
+  nutritionList:    (token)            => get("/api/templates/nutrition", token),
+  nutritionGet:     (id, token)        => get(`/api/templates/nutrition/${id}`, token),
+  createNutrition:  (body, token)      => post("/api/templates/nutrition", body, token),
+  updateNutrition:  (id, body, token)  => patch(`/api/templates/nutrition/${id}`, body, token),
+  deleteNutrition:  (id, token)        => del(`/api/templates/nutrition/${id}`, token),
 };
 
 // ─── Meal Logs ────────────────────────────────────────────────────────────────
